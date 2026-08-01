@@ -1,7 +1,7 @@
 # boost-game
 **all game**
-
-get command
+---
+**get command**
 ```sh
 pkg update -y && pkg upgrade -y
 pkg install git termux-tools -y
