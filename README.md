@@ -11,5 +11,6 @@ git clone https://github.com/XVC-THE-CODER/boost-game.git
 cd boost-game
 chmod +x command.sh boost.sh
 bash command.sh
-bash boost.sh
+bash main.sh
 ```
+---
