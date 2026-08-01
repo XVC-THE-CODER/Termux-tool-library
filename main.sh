@@ -90,7 +90,7 @@ draw_box(){
   echo -e " ${G}[✓]${NC} ${W}$TXT_TIER : $TIER_NOW${NC}"
   echo -e " ${Y}[✓]${NC} ${W}$TXT_BOOST : $BOOST_NOW (Auto)${NC}"
   echo -e " ${B}[✓]${NC} ${W}$TXT_CPU : $MAX_CPU_PERCENT% | $TXT_REFRESH: ${REFRESH}Hz${NC}"
-  echo -e " ${R}[✓]${NC} ${W}$TXT_MODE : NON-ROOT + ANTI IKLAN ULTRA${NC}"
+  echo -e " ${R}[✓]${NC} ${W}$TXT_MODE : ON ROOT + ANTI IKLAN ULTRA${NC}"
   echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
   echo -e " ${W}$TXT_TEMP:${TEMP}°C $TXT_RAM:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC%${NC}"
   echo -e "${C}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
