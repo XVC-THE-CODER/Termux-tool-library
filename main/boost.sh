@@ -1,28 +1,106 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # =================================================================
-# ULTRA AUTO ADAPTIVE V2 - ORIGINAL + ANTI LAG & ANTI IKLAN ULTRA
-# Auto Detect: OPPO A17 / Helio G35 / RAM 4GB / Tier LOW
-# Boost auto berubah: HP Kentang 50% - HP Kuat 120%
+# ULTRA AUTO ADAPTIVE V3 - NO WALL + AUTO TRANSLATE BY IP
 # MODE: NON-ROOT & NON-VISUAL SAFE FOR ALL DEVICE
-# BAR FPS: # (REQUESTED)
+# BAR FPS: # | WALL REMOVED | AUTO LANG BY IP
 # =================================================================
 
 R='\033[1;31m'; G='\033[1;32m'; Y='\033[1;33m'; B='\033[1;34m'; C='\033[1;36m'; W='\033[1;37m'; NC='\033[0m'
 
-# --- AUTO DETEKSI NAMA HP USER (ORIGINAL - TIDAK DIUBAH) ---
+# --- AUTO DETEKSI NAMA HP USER (ORIGINAL) ---
 BRAND=$(getprop ro.product.brand 2>/dev/null | tr 'a-z' 'A-Z')
 MODEL=$(getprop ro.product.model 2>/dev/null)
 CHIPSET=$(getprop ro.board.platform 2>/dev/null)
 if [ -z "$CHIPSET" ]; then CHIPSET=$(getprop ro.hardware 2>/dev/null); fi
 if [ -z "$CHIPSET" ]; then CHIPSET=$(cat /proc/cpuinfo 2>/dev/null | grep Hardware | head -1 | cut -d: -f2 | xargs); fi
 RAM_TOTAL_KB=$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')
-RAM_TOTAL_GB=$((RAM_TOTAL_KB / 1024 / 1024))
+RAM_TOTAL_GB=$((RAM_TOTAL_KB / 1024))
 ANDROID_VER=$(getprop ro.build.version.release 2>/dev/null)
-
-# Kalo gak kedetek, fallback ke OPPO A17 lu (ORIGINAL)
 [ -z "$BRAND" ] && BRAND="OPPO"
 [ -z "$MODEL" ] && MODEL="A17"
 [ -z "$CHIPSET" ] && CHIPSET="Helio G35"
+
+# --- AUTO TRANSLATE BY IP / COUNTRY (BARU) ---
+IP_COUNTRY="ID"
+LANG_CODE="ID"
+IP_ADDR="127.0.0.1"
+
+detect_country_and_lang(){
+  # 1. Coba ambil negara dari IP publik (pake curl)
+  if command -v curl >/dev/null 2>&1; then
+    DATA=$(curl -s --connect-timeout 3 https://ipinfo.io 2>/dev/null)
+    if [ -n "$DATA" ]; then
+      CTRY=$(echo "$DATA" | grep '"country"' | cut -d'"' -f4 | tr 'a-z' 'A-Z')
+      IP_TMP=$(echo "$DATA" | grep '"ip"' | cut -d'"' -f4)
+      [ -n "$CTRY" ] && IP_COUNTRY="$CTRY"
+      [ -n "$IP_TMP" ] && IP_ADDR="$IP_TMP"
+    fi
+  fi
+  # 2. Fallback kalo curl gagal - pake SIM / Locale
+  if [ "$IP_COUNTRY" = "ID" ] && [ "$IP_ADDR" = "127.0.0.1" ]; then
+    SIM=$(getprop gsm.sim.operator.iso-country 2>/dev/null | tr 'a-z' 'A-Z')
+    [ -n "$SIM" ] && IP_COUNTRY="$SIM"
+  fi
+  if [ -z "$IP_COUNTRY" ] || [ ${#IP_COUNTRY} -gt 4 ]; then
+    LOC=$(getprop persist.sys.locale 2>/dev/null | cut -d'-' -f2 | tr 'a-z' 'A-Z')
+    [ -n "$LOC" ] && IP_COUNTRY="$LOC" || IP_COUNTRY="ID"
+  fi
+
+  # Tentukan bahasa
+  case "$IP_COUNTRY" in
+    ID) LANG_CODE="ID" ;;
+    MY|SG) LANG_CODE="MY" ;;
+    US|GB|UK|AU|CA) LANG_CODE="EN" ;;
+    JP) LANG_CODE="JP" ;;
+    KR) LANG_CODE="KR" ;;
+    PH) LANG_CODE="PH" ;;
+    IN) LANG_CODE="IN" ;;
+    *) LANG_CODE="ID" ;; # default Indo
+  esac
+}
+
+load_translation(){
+  # Default ID
+  TXT_APP="ULTRA AUTO V3"
+  TXT_TIER="TIER DEVICE"
+  TXT_BOOST="BOOST POWER"
+  TXT_CPU="CPU MAX"
+  TXT_REFRESH="Refresh"
+  TXT_MODE="MODE"
+  TXT_TEMP="Suhu"
+  TXT_RAM="RAM Free"
+  TXT_INFO="INFO"
+  TXT_AUTO="AUTO"
+  TXT_DETEK="Deteksi"
+  TXT_KEKUATAN="Kekuatan"
+  TXT_DITERAPKAN="diterapkan untuk"
+  TXT_STOP_TXT="STOP"
+  TXT_TEKAN="Tekan [ENTER] untuk STOP"
+
+  if [ "$LANG_CODE" = "EN" ]; then
+    TXT_TIER="DEVICE TIER"
+    TXT_BOOST="BOOST POWER"
+    TXT_CPU="CPU MAX"
+    TXT_TEMP="Temp"
+    TXT_RAM="RAM Free"
+    TXT_INFO="INFO"
+    TXT_AUTO="AUTO"
+    TXT_DETEK="Detect"
+    TXT_KEKUATAN="Power"
+    TXT_DITERAPKAN="applied for"
+    TXT_STOP_TXT="STOP"
+    TXT_TEKAN="Press [ENTER] to STOP"
+  elif [ "$LANG_CODE" = "MY" ]; then
+    TXT_TIER="TIER PERANTI"
+    TXT_BOOST="KUASA BOOST"
+    TXT_TEMP="Suhu"
+    TXT_TEKAN="Tekan [ENTER] untuk HENTI"
+  fi
+}
+
+# JALANKAN DETEKSI BAHASA DI AWAL
+detect_country_and_lang
+load_translation
 
 # --- AUTO TENTUIN TIER & KEKUATAN BOOST (ORIGINAL) ---
 if [ "$RAM_TOTAL_GB" -le 4 ]; then
@@ -35,14 +113,12 @@ else
   TIER=4; TIER_NAME="EXTREME - FLAGSHIP"; BOOST_POWER="120% EXTREME OC"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0
 fi
 
-# Override khusus Helio G35 biar gak dipaksa (ORIGINAL)
 if echo "$CHIPSET" | grep -qi "G35\|G25\|G85\|mt6765\|helio"; then
   TIER=1; TIER_NAME="LOW - HELIO G35"; BOOST_POWER="50% BALANCED ADEM"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5
 fi
 
 is_root(){ su -c "id" >/dev/null 2>&1 && echo 1 || echo 0; }
 safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.15; }
-
 get_temp(){ MAX=0; for f in /sys/class/thermal/thermal_zone*/temp; do [ -f "$f" ] || continue; T=$(cat $f 2>/dev/null); [ "$T" -gt 1000 ] && T=$((T/1000)); [ "$T" -gt "$MAX" ] && MAX=$T; done; [ "$MAX" -eq 0 ] && MAX=40; echo $MAX; }
 get_ram_free(){ free -m | awk '/Mem:/{print $7}'; }
 get_fps_auto(){
@@ -54,98 +130,71 @@ get_fps_auto(){
   fi
 }
 
+# --- DRAW BOX TANPA DINDING (REQUESTED - NO WALL) ---
 draw_box(){
   TEMP=$1; RAM=$2; FPS=$3; TIER_NOW=$4; BOOST_NOW=$5
   PERC=$((FPS*100/60)); [ "$PERC" -gt 100 ] && PERC=100
   FILL=$((PERC/10))
-  # REQUESTED: BAR FPS GANTI # AJA
   BAR=$(printf "%${FILL}s" | tr ' ' '#')
   EBAR=$(printf "%$((10-FILL))s" | tr ' ' '-')
   clear
-  echo -e "${C}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}"
-  echo -e "${C}┃${NC} ${W} ULTRA AUTO V2 - $BRAND $MODEL ${NC} ${C}┃${NC}"
-  echo -e "${C}┃${NC} ${W} Chipset: $CHIPSET | RAM: ${RAM_TOTAL_GB}GB | Andro $ANDROID_VER ${NC} ${C}┃${NC}"
-  echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
-  echo -e "${C}┃${NC} ${G}[✓]${NC} ${W}TIER DEVICE : $TIER_NOW ${NC} ${C}┃${NC}"
-  echo -e "${C}┃${NC} ${Y}[✓]${NC} ${W}BOOST POWER : $BOOST_NOW (Auto)${NC} ${C}┃${NC}"
-  echo -e "${C}┃${NC} ${B}[✓]${NC} ${W}CPU MAX : $MAX_CPU_PERCENT% | Refresh: ${REFRESH}Hz${NC} ${C}┃${NC}"
-  echo -e "${C}┃${NC} ${R}[✓]${NC} ${W}MODE : NON-ROOT + ANTI IKLAN ULTRA${NC} ${C}┃${NC}"
-  echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
-  echo -e "${C}┃${NC} Suhu:${TEMP}°C RAM Free:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC% ${C}┃${NC}"
-  echo -e "${C}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
+  echo -e "${C}${TXT_APP} - $BRAND $MODEL${NC}"
+  echo -e "${W} Chipset: $CHIPSET | RAM: ${RAM_TOTAL_GB}GB | Andro $ANDROID_VER ${NC}"
+  echo -e "${W} IP: $IP_ADDR | Country: $IP_COUNTRY | Lang: $LANG_CODE ${NC}"
+  echo -e ""
+  echo -e "${G}[✓]${NC} ${W}$TXT_TIER : $TIER_NOW ${NC}"
+  echo -e "${Y}[✓]${NC} ${W}$TXT_BOOST : $BOOST_NOW (Auto)${NC}"
+  echo -e "${B}[✓]${NC} ${W}$TXT_CPU : $MAX_CPU_PERCENT% | $TXT_REFRESH: ${REFRESH}Hz${NC}"
+  echo -e "${R}[✓]${NC} ${W}$TXT_MODE : NON-ROOT + ANTI IKLAN ULTRA${NC}"
+  echo -e ""
+  echo -e "${W}$TXT_TEMP:${TEMP}°C $TXT_RAM:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC% ${NC}"
+  echo -e ""
 }
 
-# --- ULTRA ANTI IKLAN NON-ROOT (BARU - PERKUAT) ---
 ultra_anti_ads(){
-  echo -e "${Y}[$(date +%T)] ANTI IKLAN: Pasang shield...${NC}"
+  echo -e "${Y}[$(date +%T)] ANTI IKLAN: Shield $IP_COUNTRY...${NC}"
   safe_set global private_dns_mode hostname
   safe_set global private_dns_specifier dns.adguard.com
   safe_set global ad_services_enabled 0
   safe_set global ad_services_consent_enabled 0
-  safe_set global cta_did_enabled 0
-  safe_set global cta_ad_id_enabled 0
-  safe_set global google_ads_adid_enabled 0
   safe_set secure limit_ad_tracking 1
   safe_set global analytics_enabled 0
-  # Block telemetry & ads bloatware OPPO/Realme/Xiaomi
-  for pkg in com.heytap.msp com.heytap.cloud com.oppo.market com.coloros.oppoguardelf com.facebook.system com.facebook.appmanager com.facebook.services; do
+  for pkg in com.heytap.msp com.heytap.cloud com.oppo.market com.coloros.oppoguardelf com.facebook.system; do
     pm clear --cache-only $pkg >/dev/null 2>&1
   done
 }
 
-# --- ULTRA ANTI LAG NON-ROOT (BARU - PERKUAT) ---
 ultra_anti_lag(){
-  echo -e "${Y}[$(date +%T)] ANTI LAG: Bersihin daleman...${NC}"
-  # 1. Bebasin RAM non-root
+  echo -e "${Y}[$(date +%T)] ANTI LAG: Bersihin...${NC}"
   pm trim-caches 999M >/dev/null 2>&1
   cmd package bg-dexopt-job >/dev/null 2>&1 &
-  # 2. Freeze app nganggur biar gak lag (Android 11+)
   safe_set global cached_apps_freezer enabled
-  safe_set global cached_apps_freezer_compression lz4
-  # 3. Matikan log spam yang bikin lag
   safe_set global activity_starts_logging_enabled 0
-  safe_set global system_cap 0
-  safe_set global app_auto_restriction_enabled 1
-  # 4. Kill bloatware background sesuai Tier (aman)
   if [ "$TIER" -eq 1 ]; then
     am kill-all >/dev/null 2>&1
-    cmd activity kill-all >/dev/null 2>&1
   fi
-  # 5. Optimasi I/O tanpa root
-  cmd package compile -m speed-profile -a >/dev/null 2>&1 &
 }
 
 boost_auto(){
-  echo -e "${Y}[$(date +%T)] AUTO BOOST: Deteksi $BRAND $MODEL Tier $TIER_NAME${NC}"
-  echo -e "${Y}[$(date +%T)] AUTO BOOST: Kekuatan $BOOST_POWER Refresh ${REFRESH}Hz${NC}"
-  
-  # ORIGINAL BOOST (NON-VISUAL SAFE)
+  echo -e "${Y}[$(date +%T)] $TXT_AUTO BOOST: $TXT_DETEK $BRAND $MODEL Tier $TIER_NAME [$IP_COUNTRY]${NC}"
+  echo -e "${Y}[$(date +%T)] $TXT_AUTO BOOST: $TXT_KEKUATAN $BOOST_POWER $TXT_REFRESH ${REFRESH}Hz${NC}"
   safe_set global window_animation_scale $ANIM
   safe_set global transition_animation_scale $ANIM
   safe_set global animator_duration_scale $ANIM
   safe_set system peak_refresh_rate $REFRESH
   safe_set system min_refresh_rate $REFRESH
-  
-  # PANGGIL ULTRA MODULE BARU
   ultra_anti_ads
   ultra_anti_lag
-  
-  # NON-ROOT TWEAK TAMBAHAN SESUAI TIER
-  if [ "$TIER" -ge 2 ]; then
-    safe_set global ram_expand_size 0
-    safe_set system intelligent_sleep 0
-  fi
-  
-  echo -e "${G}[$(date +%T)] BOOST: $BOOST_POWER diterapkan untuk $MODEL${NC}"
+  echo -e "${G}[$(date +%T)] BOOST: $BOOST_POWER $TXT_DITERAPKAN $MODEL${NC}"
 }
 
 termux-wake-lock 2>/dev/null
 while true; do
   TEMP=$(get_temp); RAM=$(get_ram_free); FPS=$(get_fps_auto)
   draw_box $TEMP $RAM $FPS "$TIER - $TIER_NAME" "$BOOST_POWER"
-  echo ""; echo -e "${B}[$(date +%T)] INFO: Nama HP auto $BRAND $MODEL | Mode Non-Root${NC}"
-  echo -e "${G}[$(date +%T)] AUTO: Boost $BOOST_POWER + Anti Iklan/Lag ULTRA aktif${NC}"
+  echo -e "${B}[$(date +%T)] $TXT_INFO: $BRAND $MODEL | $IP_ADDR:$IP_COUNTRY${NC}"
+  echo -e "${G}[$(date +%T)] $TXT_AUTO: $BOOST_POWER + Anti Iklan/Lag ULTRA [$LANG_CODE]${NC}"
   boost_auto
-  echo -e "${W}>> Tekan [ENTER] untuk STOP <<${NC}"
-  if read -t 5; then clear; echo -e "${G}✔ STOP - $MODEL | Private DNS balik normal${NC}"; safe_set global private_dns_mode opportunistic; exit 0; fi
+  echo -e "${W}>> $TXT_TEKAN <<${NC}"
+  if read -t 5; then clear; echo -e "${G}✔ $TXT_STOP_TXT - $MODEL${NC}"; safe_set global private_dns_mode opportunistic; exit 0; fi
 done
