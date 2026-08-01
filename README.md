@@ -9,7 +9,7 @@ cd ~
 rm -rf boost-game
 git clone https://github.com/XVC-THE-CODER/boost-game.git
 cd boost-game
-chmod +x command.sh boost.sh
+chmod +x command.sh main.sh
 bash command.sh
 bash main.sh
 ```
