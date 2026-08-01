@@ -21,7 +21,7 @@ detect_lang(){
   fi
 }
 load_translation(){
-  TXT_APP="ULTRA AUTO V1.5"
+  TXT_APP="boost perfomance V1.5"
   TXT_TIER="TIER DEVICE"
   TXT_BOOST="BOOST POWER"
   TXT_CPU="CPU MAX"
