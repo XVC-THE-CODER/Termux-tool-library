@@ -6,7 +6,7 @@ pkg install root-repo x11-repo tur-repo -y
 pkg install termux-tools git -y
 pkg autoclean
 chmod +x main.sh
-echo "✅ Setup selesai, sekarang jalanin: bash boost.sh"
+echo "success install command"
 EOF
 
 chmod +x command.sh
