@@ -14,3 +14,17 @@ bash command.sh
 bash main.sh
 ```
 ---
+**use back**
+```sh
+cd ~/boost-game
+git pull
+chmod +x command.sh main.sh
+bash main.sh
+```
+---
+**delete root**
+```sh
+cd ~
+rm -rf boost-game
+```
+---
