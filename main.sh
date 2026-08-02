@@ -21,7 +21,7 @@ detect_lang(){
   fi
 }
 load_translation(){
-  TXT_APP=$(echo Ym9vc3QgdWx0aW1hdGUgVjIuMCBGUkFNRSBSRUFMLVRJTUU= | base64 -d)
+  TXT_APP=$(echo ICAgICBib29zdCB1bHRpbWF0ZSBWMi4w | base64 -d)
   TXT_VER="VERSION"
   TXT_FUNGSI="FUNGSI LIST"
   TXT_INFO="INFO"
@@ -53,16 +53,16 @@ load_translation(){
 detect_lang
 load_translation
 if [ "$_g" -le 4 ]; then
-  TIER=1; TIER_NAME="LOW - KENTANG"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
+  TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 elif [ "$_g" -le 6 ]; then
-  TIER=2; TIER_NAME="MID - MENENGAH"; BOOST_POWER="75% PERFORMANCE"; MAX_CPU_PERCENT=90; REFRESH=90; ANIM=0.3; SENS=9
+  TIER=2; TIER_NAME="MID"; BOOST_POWER="75% PERFORMANCE"; MAX_CPU_PERCENT=90; REFRESH=90; ANIM=0.3; SENS=9
 elif [ "$_g" -le 8 ]; then
-  TIER=3; TIER_NAME="HIGH - KUAT"; BOOST_POWER="100% TURBO"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
+  TIER=3; TIER_NAME="HIGH"; BOOST_POWER="100% TURBO"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
 else
-  TIER=4; TIER_NAME="EXTREME - FLAGSHIP"; BOOST_POWER="120% EXTREME OC"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
+  TIER=4; TIER_NAME="EXTREME"; BOOST_POWER="120% EXTREME OC"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
 fi
 if echo "$_c" | grep -qi "mt6765\|helio\|G35\|G25\|G85"; then
-  TIER=1; TIER_NAME="LOW - KENTANG"; BOOST_POWER="50% BALANCED ADEM"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
+  TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED ADEM"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 fi
 safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.08; }
 get_temp(){ MAX=0; for f in /sys/class/thermal/thermal_zone*/temp; do [ -f "$f" ] || continue; T=$(cat $f 2>/dev/null); [ "$T" -gt 1000 ] && T=$((T/1000)); [ "$T" -gt "$MAX" ] && MAX=$T; done; [ "$MAX" -eq 0 ] && MAX=40; echo $MAX; }
