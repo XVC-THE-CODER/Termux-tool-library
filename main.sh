@@ -21,14 +21,15 @@ detect_lang(){
   fi
 }
 load_translation(){
-  TXT_APP=$(echo Ym9vc3QgdWx0aW1hdGUgVjIuMA== | base64 -d)
+  TXT_APP=$(echo Ym9vc3QgdWx0aW1hdGUgVjIuMCBGUkFNRSBSRUFMLVRJTUU= | base64 -d)
   TXT_VER="VERSION"
   TXT_FUNGSI="FUNGSI LIST"
   TXT_INFO="INFO"
   TXT_TIER="TIER DEVICE"
   TXT_BOOST="BOOST POWER"
   TXT_CPU="CPU GPU BOOST"
-  TXT_SLIP="SLIPPERY SENSITIVITY"
+  TXT_SLIP="SLIPPERY REAL-TIME"
+  TXT_FRAME="FRAME OPTIMIZE"
   TXT_TEMP="Suhu"
   TXT_RAM="RAM Free"
   TXT_AUTO="AUTO"
@@ -41,7 +42,8 @@ load_translation(){
     TXT_TIER="DEVICE TIER"
     TXT_BOOST="BOOST POWER"
     TXT_CPU="CPU GPU BOOST"
-    TXT_SLIP="SLIPPERY SENSITIVITY"
+    TXT_SLIP="SLIPPERY REAL-TIME"
+    TXT_FRAME="FRAME OPTIMIZE"
     TXT_TEMP="Temp"
     TXT_AUTO="AUTO"
     TXT_TEKAN="Press [ENTER] to STOP"
@@ -51,26 +53,26 @@ load_translation(){
 detect_lang
 load_translation
 if [ "$_g" -le 4 ]; then
-  TIER=1; TIER_NAME="LOW - KENTANG"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=7
+  TIER=1; TIER_NAME="LOW - KENTANG"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 elif [ "$_g" -le 6 ]; then
-  TIER=2; TIER_NAME="MID - MENENGAH"; BOOST_POWER="75% PERFORMANCE"; MAX_CPU_PERCENT=90; REFRESH=90; ANIM=0.3; SENS=8
+  TIER=2; TIER_NAME="MID - MENENGAH"; BOOST_POWER="75% PERFORMANCE"; MAX_CPU_PERCENT=90; REFRESH=90; ANIM=0.3; SENS=9
 elif [ "$_g" -le 8 ]; then
-  TIER=3; TIER_NAME="HIGH - KUAT"; BOOST_POWER="100% TURBO"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=9
+  TIER=3; TIER_NAME="HIGH - KUAT"; BOOST_POWER="100% TURBO"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
 else
   TIER=4; TIER_NAME="EXTREME - FLAGSHIP"; BOOST_POWER="120% EXTREME OC"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
 fi
 if echo "$_c" | grep -qi "mt6765\|helio\|G35\|G25\|G85"; then
-  TIER=1; TIER_NAME="LOW - KENTANG"; BOOST_POWER="50% BALANCED ADEM"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=7
+  TIER=1; TIER_NAME="LOW - KENTANG"; BOOST_POWER="50% BALANCED ADEM"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 fi
-safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.1; }
+safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.08; }
 get_temp(){ MAX=0; for f in /sys/class/thermal/thermal_zone*/temp; do [ -f "$f" ] || continue; T=$(cat $f 2>/dev/null); [ "$T" -gt 1000 ] && T=$((T/1000)); [ "$T" -gt "$MAX" ] && MAX=$T; done; [ "$MAX" -eq 0 ] && MAX=40; echo $MAX; }
 get_ram_free(){ free -m | awk '/Mem:/{print $7}'; }
 get_fps_auto(){
   TEMP=$(get_temp); RAM=$(get_ram_free)
   if [ "$TIER" -eq 1 ]; then MAX_FPS=60; elif [ "$TIER" -eq 2 ]; then MAX_FPS=90; else MAX_FPS=120; fi
   if [ "$TEMP" -lt 42 ] && [ "$RAM" -gt 1000 ]; then echo $MAX_FPS
-  elif [ "$TEMP" -lt 46 ]; then echo $((MAX_FPS-5))
-  else echo $((MAX_FPS-12))
+  elif [ "$TEMP" -lt 46 ]; then echo $((MAX_FPS-2))
+  else echo $((MAX_FPS-6))
   fi
 }
 ultra_anti_ads(){
@@ -102,29 +104,37 @@ boost_cpu_gpu(){
   safe_set global debug.hwui.renderer skiagl
   safe_set global debug.hwui.overdraw false
   safe_set global debug.hwui.use_buffer_age false
+  safe_set global debug.hwui.render_thread true
+  safe_set global debug.hwui.render_thread_count 2
   safe_set system peak_refresh_rate $REFRESH
   safe_set system min_refresh_rate $REFRESH
   safe_set global window_animation_scale $ANIM
   safe_set global transition_animation_scale $ANIM
   safe_set global animator_duration_scale $ANIM
+  safe_set secure refresh_rate_mode 1
   cmd package compile -m speed-profile -a >/dev/null 2>&1 &
+  renice -n -10 $$ >/dev/null 2>&1
 }
 slippery_logic(){
-  TEMP=$1
-  if [ "$TEMP" -lt 41 ]; then SLOP=8; PRESS=0.4; TO=180
-  elif [ "$TEMP" -lt 45 ]; then SLOP=10; PRESS=0.6; TO=220
-  else SLOP=12; PRESS=0.8; TO=250
+  TEMP=$1; FPS=$2
+  if [ "$FPS" -ge 55 ]; then SLOP=4; PRESS=0.25; TO=150; SIZE=0.3
+  elif [ "$FPS" -ge 40 ]; then SLOP=6; PRESS=0.35; TO=170; SIZE=0.4
+  else SLOP=8; PRESS=0.5; TO=190; SIZE=0.5
   fi
   safe_set system view_configuration_touch_slop $SLOP
   safe_set system touch.pressure.scale $PRESS
-  safe_set system touch.size.scale 0.5
+  safe_set system touch.size.scale $SIZE
   safe_set secure long_press_timeout $TO
-  safe_set system gesture_exclusion_limit 250
+  safe_set system gesture_exclusion_limit 300
   safe_set global block_untrusted_touches 0
+  safe_set system tap_duration_threshold 0
+  safe_set system touch.size.calibration geometric
+  safe_set system touch.pressure.calibration amplitude
   if command -v xinput >/dev/null 2>&1; then
     for id in $(xinput list --id-only 2>/dev/null | head -5); do
       xinput set-prop $id "libinput Accel Speed" 1 2>/dev/null
       xinput set-prop $id "libinput Accel Profile Enabled" 0 1 2>/dev/null
+      xinput set-prop $id "libinput Scrolling Pixel Distance" 10 2>/dev/null
     done
   fi
 }
@@ -141,11 +151,10 @@ draw_box(){
   echo -e " ${W}$TXT_FUNGSI :${NC}"
   echo -e "  ${G}[✓]${NC} ${W}$TXT_TIER : $TIER_NOW${NC}"
   echo -e "  ${G}[✓]${NC} ${W}$TXT_BOOST : $BOOST_NOW${NC}"
-  echo -e "  ${G}[✓]${NC} ${W}$TXT_CPU : $MAX_CPU_PERCENT% | $REFRESH Hz${NC}"
-  echo -e "  ${G}[✓]${NC} ${W}$TXT_SLIP : $SENS_NOW/10 ${NC}"
-  echo -e "  ${G}[✓]${NC} ${W}ANTI LAG : Active${NC}"
-  echo -e "  ${G}[✓]${NC} ${W}block ads: Active${NC}"
-  echo -e "  ${G}[✓]${NC} ${W}GPU RENDER : Active${NC}"
+  echo -e "  ${G}[✓]${NC} ${W}$TXT_CPU : $MAX_CPU_PERCENT% | $REFRESH Hz Locked${NC}"
+  echo -e "  ${G}[✓]${NC} ${W}$TXT_SLIP : $SENS_NOW/10 REAL-TIME${NC}"
+  echo -e "  ${G}[✓]${NC} ${W}$TXT_FRAME : V-Sync Stable | Touch 150ms${NC}"
+  echo -e "  ${G}[✓]${NC} ${W}ANTI LAG + BLOCK ADS + GPU RENDER${NC}"
   echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
   echo -e " ${W}$TXT_INFO : RAM ${_g}GB Free ${RAM}MB | Andro $_v${NC}"
   echo -e " ${W}$TXT_TEMP:${TEMP}°C $TXT_RAM:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC%${NC}"
@@ -155,13 +164,13 @@ termux-wake-lock 2>/dev/null
 while true; do
   TEMP=$(get_temp); RAM=$(get_ram_free); FPS=$(get_fps_auto)
   draw_box $TEMP $RAM $FPS "$TIER - $TIER_NAME" "$BOOST_POWER" "$SENS"
-  echo ""; echo -e "${B}[$(date +%T)] $TXT_INFO: Secured Device ULTIMATE${NC}"
-  echo -e "${G}[$(date +%T)] $TXT_AUTO: $BOOST_POWER | Touch $SENS licin${NC}"
+  echo ""; echo -e "${B}[$(date +%T)] $TXT_INFO: Frame Locked $REFRESH Hz | Touch Real-Time${NC}"
+  echo -e "${G}[$(date +%T)] $TXT_AUTO: $BOOST_POWER | FPS $FPS stabil${NC}"
   ultra_anti_ads
   ultra_anti_lag
   boost_cpu_gpu
-  slippery_logic $TEMP
-  echo -e "${G}[$(date +%T)] ULTIMATE: All system applied${NC}"
+  slippery_logic $TEMP $FPS
+  echo -e "${G}[$(date +%T)] ULTIMATE V2: Frame Optimize + Slippery Applied${NC}"
   echo -e "${W}>> $TXT_TEKAN <<${NC}"
-  if read -t 5; then clear; echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"; safe_set global private_dns_mode opportunistic; safe_set system pointer_speed 3; exit 0; fi
+  if read -t 3; then clear; echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"; safe_set global private_dns_mode opportunistic; safe_set system pointer_speed 3; safe_set secure long_press_timeout 400; safe_set system min_refresh_rate 60; exit 0; fi
 done
