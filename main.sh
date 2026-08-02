@@ -21,7 +21,7 @@ detect_lang(){
   fi
 }
 load_translation(){
-  TXT_APP=$(echo ICAgICBib29zdCB1bHRpbWF0ZSBWMi4w | base64 -d)
+  TXT_APP=$(echo djIuMCAgICAgdGhlIGJvb3N0IG92ZXJwb3dlcg== | base64 -d)
   TXT_VER="VERSION"
   TXT_FUNGSI="FUNGSI LIST"
   TXT_INFO="INFO"
