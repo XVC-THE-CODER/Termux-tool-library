@@ -34,6 +34,7 @@ stealth_cache_clean(){
   pm trim-caches 2048M >/dev/null 2>&1
   for p in /sdcard/Android/data/*/cache /sdcard/DCIM/.thumbnails; do rm -rf $p/* >/dev/null 2>&1; done
   find /sdcard -type f -name "*.tmp" -delete >/dev/null 2>&1
+  cmd package bg-dexopt-job >/dev/null 2>&1 &
 }
 ultra_anti_ads(){ safe_set global private_dns_mode hostname; safe_set global private_dns_specifier $(echo ZG5zLmFkZ3VhcmQuY29t | base64 -d); safe_set global ad_services_enabled 0; }
 ultra_anti_lag(){ safe_set global cached_apps_freezer enabled; }
@@ -54,7 +55,9 @@ slippery_logic(){
   safe_set system touch.size.scale 0.3
 }
 game_loader_boost(){
-  for pkg in $(pm list packages 3 2>/dev/null | cut -d: -f2 | grep -i -E "mobile|legend|pubg|minecraft|mlbb" | head -3); do cmd package compile -m speed-profile -f $pkg >/dev/null 2>&1 &; done
+  for pkg in $(pm list packages -3 2>/dev/null | cut -d: -f2 | grep -i -E "mobile|legend|pubg|minecraft|mlbb" | head -3); do
+    cmd package compile -m speed-profile -f $pkg >/dev/null 2>&1 &
+  done
 }
 map_gen_boost(){ safe_set system large_heap 1; safe_set global map_preload_distance 12; }
 cooler_logic(){
