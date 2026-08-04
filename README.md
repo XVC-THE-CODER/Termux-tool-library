@@ -1,30 +1,43 @@
-# boost-game
-**all game**
----
-**get command**
+# termux tool library 
+**boost performance**
+**instal tool**
 ```sh
-pkg update -y && pkg upgrade -y
-pkg install git termux-tools -y
-cd ~
-rm -rf boost-game
-git clone https://github.com/XVC-THE-CODER/boost-game.git
-cd boost-game
-chmod +x command.sh main.sh
+pkg update -y
+pkg install -y git
+git clone https://github.com/XVC-THE-CODER/Termux-tool-library.git
+cd Termux-tool-library
+cd boost-performance
+chmod +x command.sh main-engine.sh
 bash command.sh
-bash main.sh
+bash main-engine.sh
 ```
----
 **use back**
 ```sh
-cd ~/boost-game
+cd Termux-tool-library
+cd boost-performance
 git pull
-chmod +x command.sh main.sh
-bash main.sh
+chmod +x command.sh main-engine.sh
+bash command.sh
+bash main-engine.sh
 ```
----
 **delete root**
 ```sh
 cd ~
+rm -rf Termux-tool-library
 rm -rf boost-game
+```
+**instal back**
+```sh
+cd ~
+rm -rf Termux-tool-library
+rm -rf boost-game
+pkg update -y
+pkg install -y git
+git clone https://github.com/XVC-THE-CODER/Termux-tool-library.git
+cd Termux-tool-library
+cd boost-performance
+chmod +x command.sh main-engine.sh
+bash command.sh
+bash main-engine.sh
 ```
 ---
