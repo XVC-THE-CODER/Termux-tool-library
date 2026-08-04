@@ -11,13 +11,12 @@ _v=$(getprop $(echo cm8uYnVpbGQudmVyc2lvbi5yZWxlYXNl | base64 -d) 2>/dev/null)
 [ -z "$_b" ] && _b=$(echo R2VuZXJpYw== | base64 -d)
 [ -z "$_m" ] && _m=$(echo RGV2aWNl | base64 -d)
 [ -z "$_c" ] && _c=$(echo VW5rbm93bg== | base64 -d)
-TXT_APP=$(echo djIuMCAgICAgYm9vc3QgcGVyZm9tYW5jZSBnYW1l | base64 -d)
+TXT_APP=$(echo djIuNSAgICAgYm9vc3QgcGVyZm9tYW5jZSBnYW1l | base64 -d)
 TXT_VER="VERSION"
 TXT_FUNGSI="FUNCTION LIST"
 TXT_INFO="INFO"
 TXT_TEMP="Temp"
 TXT_RAM="RAM Free"
-TXT_AUTO="AUTO"
 TXT_TEKAN="Press [ENTER] to STOP"
 TXT_STOP_TXT="STOP"
 if [ "$_g" -le 4 ]; then
@@ -32,8 +31,8 @@ fi
 if echo "$_c" | grep -qi "mt6765\|helio\|G35\|G25\|G85"; then
   TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED ADEM"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 fi
-safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.08; }
-get_temp(){ MAX=0; for f in /sys/class/thermal/thermal_zone*/temp; do [ -f "$f" ] || continue; T=$(cat $f 2>/dev/null); [ "$T" -gt 1000 ] && T=$((T/1000)); [ "$T" -gt "$MAX" ] && MAX=$T; done; [ "$MAX" -eq 0 ] && MAX=40; echo $MAX; }
+safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.06; }
+get_temp(){ MAX=0; for f in /sys/class/thermal/thermal_zone*/temp; do [ -f "$f" ] || continue; T=$(cat $f 2>/dev/null); [ "$T" -gt 1000 ] && T=$((T/1000)); [ "$T" -gt "$MAX" ] && MAX=$T; done; [ "$MAX" -eq 0 ] && MAX=38; echo $MAX; }
 get_ram_free(){ free -m | awk '/Mem:/{print $7}'; }
 get_fps_auto(){
   TEMP=$(get_temp); RAM=$(get_ram_free)
@@ -45,40 +44,16 @@ get_fps_auto(){
 }
 stealth_cache_clean(){
   pm trim-caches 2048M >/dev/null 2>&1
-  for p in /sdcard/Android/data/*/cache /sdcard/Android/data/*/files/cache /sdcard/Android/obb/*/cache /sdcard/DCIM/.thumbnails; do
-    rm -rf $p/* >/dev/null 2>&1
-  done
-  find /sdcard -type f \( -name "*.tmp" -o -name "*.log" -o -name "cache_*" -o -name ".tmp*" \) -delete >/dev/null 2>&1
-  find /data/local/tmp -type f -mtime +1 -delete >/dev/null 2>&1
+  for p in /sdcard/Android/data/*/cache /sdcard/Android/data/*/files/cache /sdcard/DCIM/.thumbnails; do rm -rf $p/* >/dev/null 2>&1; done
+  find /sdcard -type f \( -name "*.tmp" -o -name "*.log" -o -name "cache_*" \) -delete >/dev/null 2>&1
   cmd package bg-dexopt-job >/dev/null 2>&1 &
 }
-ultra_anti_ads(){
-  safe_set global private_dns_mode hostname
-  safe_set global private_dns_specifier $(echo ZG5zLmFkZ3VhcmQuY29t | base64 -d)
-  safe_set global ad_services_enabled 0
-  safe_set global ad_services_consent_enabled 0
-  safe_set secure limit_ad_tracking 1
-  safe_set global analytics_enabled 0
-  for enc in Y29tLmhleXRhcC5tc3A= Y29tLmhleXRhcC5jbG91ZA== Y29tLm9wcG8ubWFya2V0 Y29tLmNvbG9yb3Mub3Bwb2d1YXJkZWxm Y29tLmZhY2Vib29rLnN5c3RlbQ==; do
-    pkg=$(echo $enc | base64 -d)
-    pm clear --cache-only $pkg >/dev/null 2>&1
-  done
-}
-ultra_anti_lag(){
-  cmd package bg-dexopt-job >/dev/null 2>&1 &
-  safe_set global cached_apps_freezer enabled
-  safe_set global activity_starts_logging_enabled 0
-  safe_set global app_auto_restriction_enabled 1
-  if [ "$TIER" -eq 1 ]; then am kill-all >/dev/null 2>&1; fi
-}
+ultra_anti_ads(){ safe_set global private_dns_mode hostname; safe_set global private_dns_specifier $(echo ZG5zLmFkZ3VhcmQuY29t | base64 -d); safe_set global ad_services_enabled 0; safe_set global analytics_enabled 0; }
+ultra_anti_lag(){ safe_set global cached_apps_freezer enabled; safe_set global activity_starts_logging_enabled 0; }
 boost_cpu_gpu(){
-  safe_set system pointer_speed 7
   safe_set global sem_enhanced_cpu_responsiveness 1
   safe_set global debug.hwui.renderer skiagl
-  safe_set global debug.hwui.overdraw false
   safe_set global debug.hwui.render_thread true
-  safe_set system peak_refresh_rate $REFRESH
-  safe_set system min_refresh_rate $REFRESH
   safe_set global window_animation_scale $ANIM
   safe_set global transition_animation_scale $ANIM
   safe_set global animator_duration_scale $ANIM
@@ -94,25 +69,26 @@ slippery_logic(){
   safe_set system touch.pressure.scale $PRESS
   safe_set system touch.size.scale 0.3
   safe_set secure long_press_timeout $TO
-  safe_set system gesture_exclusion_limit 300
   safe_set global block_untrusted_touches 0
 }
 game_loader_boost(){
-  for pkg in $(pm list packages 3 2>/dev/null | cut -d: -f2 | grep -i -E "mobile|legend|pubg|free|minecraft|roblox|genshin|codm|mlbb" | head -8); do
-    cmd package compile -m speed-profile -f $pkg >/dev/null 2>&1 &
-  done
+  for pkg in $(pm list packages 3 2>/dev/null | cut -d: -f2 | grep -i -E "mobile|legend|pubg|free|minecraft|roblox|genshin|codm|mlbb" | head -5); do cmd package compile -m speed-profile -f $pkg >/dev/null 2>&1 &; done
   safe_set global game_dashboard_enable 1
-  safe_set global game_auto_temperature 0
 }
-map_gen_boost(){
-  safe_set system large_heap 1
-  safe_set global chunk_load_optimize 1
-  safe_set global map_render_accel 1
-  safe_set system hwui.render_dirty_regions false
-  safe_set global map_preload_distance 12
+map_gen_boost(){ safe_set system large_heap 1; safe_set global chunk_load_optimize 1; safe_set global map_preload_distance 12; }
+cooler_logic(){
+  TEMP=$1
+  if [ "$TEMP" -ge 48 ]; then RFS=60; MODE="EXTREME COOL"; am kill-all >/dev/null 2>&1; pm trim-caches 1024M >/dev/null 2>&1
+  elif [ "$TEMP" -ge 44 ]; then RFS=90; MODE="HARD COOL"; pm trim-caches 512M >/dev/null 2>&1
+  else RFS=120; MODE="STABLE COOL"
+  fi
+  safe_set system peak_refresh_rate $RFS
+  safe_set system min_refresh_rate $RFS
+  echo $MODE
 }
+notify_update(){ MSG=$1; echo -e "${Y}update : $MSG${NC}"; if command -v termux-notification >/dev/null 2>&1; then termux-notification --id tool_update --title "System Tool" --content "update : $MSG" --priority low >/dev/null 2>&1; fi; }
 draw_box(){
-  TEMP=$1; RAM=$2; FPS=$3
+  TEMP=$1; RAM=$2; FPS=$3; MODE=$4
   PERC=$((FPS*100/60)); [ "$PERC" -gt 100 ] && PERC=100
   FILL=$((PERC/10))
   BAR=$(printf "%${FILL}s" | tr ' ' '#')
@@ -124,7 +100,7 @@ draw_box(){
   echo -e " ${W}$TXT_FUNGSI :${NC}"
   echo -e "  ${G}[✓]${NC} ${W}all system performance : active${NC}"
   echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
-  echo -e " ${W}$TXT_INFO : RAM ${_g}GB Free ${RAM}MB | Andro $_v${NC}"
+  echo -e " ${W}$TXT_INFO : RAM ${_g}GB Free ${RAM}MB | Andro $_v | $MODE${NC}"
   echo -e " ${W}$TXT_TEMP:${TEMP}°C $TXT_RAM:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC%${NC}"
   echo -e "${C}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
 }
@@ -133,17 +109,18 @@ CYCLE=0
 while true; do
   TEMP=$(get_temp); RAM=$(get_ram_free); FPS=$(get_fps_auto)
   CYCLE=$((CYCLE+1))
-  draw_box $TEMP $RAM $FPS
-  echo ""; echo -e "${B}[$(date +%T)] $TXT_INFO: Secured Device ULTIMATE${NC}"
-  echo -e "${G}[$(date +%T)] $TXT_AUTO: $BOOST_POWER | Touch $SENS Real-Time${NC}"
-  if [ $((CYCLE % 5)) -eq 0 ]; then stealth_cache_clean; fi
-  ultra_anti_ads
-  ultra_anti_lag
-  boost_cpu_gpu
-  slippery_logic $TEMP $FPS
-  game_loader_boost
-  map_gen_boost
-  echo -e "${G}[$(date +%T)] ULTIMATE: All System Active${NC}"
+  MODE=$(cooler_logic $TEMP)
+  draw_box $TEMP $RAM $FPS $MODE
+  echo ""
+  if [ $((CYCLE % 5)) -eq 0 ]; then stealth_cache_clean; notify_update "cache clean"; fi
+  ultra_anti_ads; notify_update "block ads"
+  ultra_anti_lag; notify_update "anti lag"
+  boost_cpu_gpu; notify_update "cpu gpu"
+  slippery_logic $TEMP $FPS; notify_update "slippery sensitivity"
+  game_loader_boost; notify_update "game loading"
+  map_gen_boost; notify_update "map gen"
+  notify_update "cooler $MODE"
+  echo -e "${G}[$(date +%T)] ALL IN ONE: $MODE | $BOOST_POWER${NC}"
   echo -e "${W}>> $TXT_TEKAN <<${NC}"
-  if read -t 3; then clear; echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"; safe_set global private_dns_mode opportunistic; safe_set system pointer_speed 3; safe_set secure long_press_timeout 400; safe_set system min_refresh_rate 60; exit 0; fi
+  if read -t 2; then clear; echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"; safe_set global private_dns_mode opportunistic; safe_set system pointer_speed 3; safe_set secure long_press_timeout 400; safe_set system min_refresh_rate 60; exit 0; fi
 done
