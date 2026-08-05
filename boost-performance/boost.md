@@ -1,5 +1,4 @@
-# termux tool library 
-**boost performance**
+# boost performance
 
 **instal tool**
 ```sh
