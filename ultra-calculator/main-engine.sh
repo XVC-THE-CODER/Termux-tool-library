@@ -1,33 +1,5 @@
 #!/bin/bash
-# =============================================================================
-# UC - Ultra Calculator by the creator tool
-# Version: 8.0 FINAL FULL - No awk warning, full code
-# =============================================================================
-# Changelog v8:
-# - FIX: awk warning escape sequence `\/` treated as plain `/`
-#        -> ganti awk -F'[*\/]' jadi -F'[*/]' (tanpa escape)
-#        -> ganti grep pattern [*\/] jadi [*/] untuk konsistensi
-# - FIX: English chooser only, bisa nomor atau nama bahasa
-# - FIX: setelah pilih bahasa langsung clear (clear screen)
-# - CODE: full version, komentar lengkap, tidak dipersingkat
-# - Title: UC + "Ultra Calculator by the creator tool"
-# =============================================================================
-# FITUR LENGKAP:
-# Operator:
-#   +  tambah / add
-#   -  kurang / subtract
-#   *  kali / multiply (wajib * , x itu variabel aljabar)
-#   :  bagi / divide
-#   /  per / fraction
-#   ^  pangkat, ² ³ ⁴, √ akar
-# Aljabar:
-#   2x+3x = 5x, x=5, 2*x+3, 2x+3=11 -> x=4
-# Perintah:
-#   help, vars, history, clear, lang, exit, way
-#   way <expr> -> langkah demi langkah / step by step
-# =============================================================================
 
-# -------------------- WARNA TERMINAL --------------------
 R='\033[91m'  # red
 G='\033[92m'  # green
 Y='\033[93m'  # yellow
@@ -51,16 +23,16 @@ banner(){
   clear
   echo -e "${C}${BOLD}"
   cat <<'EOF'
-██╗   ██╗  ██████╗
-██║   ██║ ██╔════╝
-██║   ██║ ██║     
-██║   ██║ ██║     
-╚██╗ ██╔╝ ██║     
- ╚████╔╝  ╚██████╗
-  ╚═══╝    ╚═════╝
+██╗      ██╗  ██████╗
+██║      ██║ ██╔════╝
+██║      ██║ ██║     
+██║      ██║ ██║     
+╚██╗    ██╔╝ ██║     
+ ╚███████╔╝  ╚██████╗
+  ╚══════╝    ╚═════╝
 EOF
   echo -e "${D}  Ultra Calculator by the creator tool${END}"
-  echo -e "${D}  v8.0 Full | + add - sub * mul : div / per | Way steps${END}"
+  echo -e "${D}  v1.3${END}"
   echo ""
 }
 
@@ -71,7 +43,7 @@ t(){
   local key="$1"
   if [[ "$LANG_SET" == "en" ]]; then
     case "$key" in
-      prompt) echo "ultra> " ;;
+      prompt) echo "UC> " ;;
       help_hint) echo "Type 'help' for help, 'way <expr>' for steps, 'lang' to change language" ;;
       help) echo -e "
 ${Y}${BOLD}OPERATORS:${END}
