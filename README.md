@@ -1,13 +1,9 @@
 # termux tool library 
 **boost performance**
 
-**get tool**
-
-**[open](https://github.com/XVC-THE-CODER/Termux-tool-library/blob/main/boost-performance/boost.md)**
+**[open tool](https://github.com/XVC-THE-CODER/Termux-tool-library/blob/main/boost-performance/boost.md)**
 ---
-**boost performance**
+**ultra calculator**
 
-**get tool**
-
-**[open](https://github.com/XVC-THE-CODER/Termux-tool-library/blob/main/ultra-calculator/calculator.md)**
+**[open tool](https://github.com/XVC-THE-CODER/Termux-tool-library/blob/main/ultra-calculator/calculator.md)**
 ---
