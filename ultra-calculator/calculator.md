@@ -1,5 +1,4 @@
-# termux tool library 
-**boost performance**
+# ultra calculator
 
 **instal tool**
 ```sh
