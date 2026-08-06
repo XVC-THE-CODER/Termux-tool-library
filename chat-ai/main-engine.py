@@ -1,203 +1,219 @@
-#!/data/data/com.termux/files/usr/bin/python
 #!/data/data/com.termux/files/usr/bin/python3
-import os, re, sqlite3, requests, json, time
+# -*- coding: utf-8 -*-
+import os, re, sys, sqlite3, time, base64, json
 from datetime import datetime
-from bs4 import BeautifulSoup
 
-DB_NAME = "ai_database.db"
+try:
+    import requests
+    from bs4 import BeautifulSoup
+except ImportError:
+    print("Install dulu: pip install requests beautifulsoup4")
+    sys.exit()
 
-def clear():
-    os.system("clear")
+# === [1] SYSTEM PENYIMPANAN TERSEMBUNYI ===
+HIDDEN_DIR = os.path.join(os.path.expanduser("~"), ".kamus_ai")
+DB_PATH = os.path.join(HIDDEN_DIR, ".core.db") # file titik = hidden di linux
 
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
+def encode(t):
+    try: return base64.b64encode(t.encode('utf-8')).decode()
+    except: return t
+def decode(t):
+    try: return base64.b64decode(t.encode('utf-8')).decode()
+    except: return t
+
+def clear(): os.system("clear")
+
+def init_storage():
+    os.makedirs(HIDDEN_DIR, exist_ok=True)
+    # bikin file.nomedia biar gak ke-scan
+    open(os.path.join(HIDDEN_DIR, ".nomedia"), 'a').close()
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS kamus (
-        kata TEXT PRIMARY KEY,
-        bahasa TEXT,
-        jenis_kata TEXT,
-        arti TEXT,
-        kapan_digunakan TEXT,
-        contoh TEXT,
-        sumber TEXT,
-        tgl TEXT
+        kata TEXT PRIMARY KEY, bahasa TEXT, jenis TEXT,
+        arti TEXT, kapan TEXT, contoh TEXT, sumber TEXT, tgl TEXT
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS pengetahuan (
+        kunci TEXT PRIMARY KEY, jawaban TEXT, tgl TEXT
     )''')
     conn.commit()
     conn.close()
+    seed_builtin()
 
+# === [2] DATABASE BAWAAN BIAR TETEP BISA JAWAB OFFLINE ===
+BUILTIN_KAMUS = [
+    ("saya","Indonesia","pronomina","kata ganti orang pertama","dipakai untuk diri sendiri","Saya belajar coding"),
+    ("belajar","Indonesia","verba","berusaha memperoleh ilmu","dipakai saat aktivitas menuntut ilmu","Dia belajar AI"),
+    ("komputer","Indonesia","nomina","alat elektronik pengolah data","dipakai di konteks teknologi","Komputer itu cepat"),
+    ("fotosintesis","Indonesia","nomina","proses tumbuhan membuat makanan dengan cahaya","dipakai di biologi","Fotosintesis terjadi di daun"),
+]
+
+BUILTIN_QA = {
+    "siapa kamu": "Aku adalah Kamus AI Core. Aku hidup di Termux kamu, database ku tersembunyi dan aku belajar dari setiap kata yang kamu ketik.",
+    "apa fungsi kamu": "Fungsiku adalah mengambil semua kata dari prompt kamu, mencari arti, fungsi kata (nomina/verba/adjektiva), dan kapan dipakai dari KBBI & kamus luar negeri, lalu simpan di database hidden.",
+    "halo": "Halo juga! Tanya aja apa aja, contoh: 'apa itu epistemologi' atau 'jelaskan resilience'",
+    "kamu bisa apa": "Aku bisa jawab arti kata, jelaskan konsep, dan aku ingat semua yang kamu ajarkan. Semakin banyak kamu chat, semakin pintar aku.",
+}
+
+def seed_builtin():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM kamus")
+    if c.fetchone()[0] == 0:
+        for k in BUILTIN_KAMUS:
+            c.execute("INSERT OR IGNORE INTO kamus VALUES (?,?,?,?,?,?,?,?)",
+                      (k[0], k[1], k[2], encode(k[3]), encode(k[4]), encode(k[5]), "builtin", datetime.now().strftime("%Y-%m-%d")))
+        for kunci, jawab in BUILTIN_QA.items():
+            c.execute("INSERT OR IGNORE INTO pengetahuan VALUES (?,?,?)",
+                      (kunci, encode(jawab), datetime.now().strftime("%Y-%m-%d")))
+        conn.commit()
+    conn.close()
+
+# === [3] MESIN PENCARI ===
 def cari_kbbi(kata):
     try:
-        # Coba source 1: kbbi.kemdikbud
-        url = f"https://kbbi.kemdikbud.go.id/entri/{kata}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code == 200 and "tidak ditemukan" not in r.text.lower():
-            soup = BeautifulSoup(r.text, 'html.parser')
-            # Ambil definisi di dalam <ol><li>
-            ol = soup.find('ol')
-            if ol:
-                li = ol.find('li')
-                arti = li.get_text(" ", strip=True)[:500] if li else ""
-                # Cari jenis kata biasanya ada di dalam <span> atau teks seperti n, v, a
-                full_text = soup.get_text()
-                jenis = "nomina" if " n " in full_text.lower() else "verba" if " v " in full_text.lower() else "kata"
-                return {
-                    "bahasa": "Indonesia",
-                    "jenis_kata": jenis,
-                    "arti": arti,
-                    "kapan": f"Digunakan saat konteks formal / sesuai makna KBBI dari '{kata}'",
-                    "contoh": f"Contoh penggunaan kata {kata} dalam kalimat baku.",
-                    "sumber": url
-                }
-
-        # Coba source 2: kbbi.web.id (lebih ringan)
-        url2 = f"https://kbbi.web.id/{kata}"
-        r2 = requests.get(url2, headers=headers, timeout=10)
-        if r2.status_code == 200:
-            soup2 = BeautifulSoup(r2.text, 'html.parser')
-            definisi = soup2.find('div', id='d1')
-            if definisi:
-                arti = definisi.get_text(" ", strip=True)[:500]
-                return {
-                    "bahasa": "Indonesia",
-                    "jenis_kata": "kata baku",
-                    "arti": arti,
-                    "kapan": f"Kata baku Indonesia, dipakai di tulisan formal/resmi.",
-                    "contoh": "-",
-                    "sumber": url2
-                }
-    except Exception as e:
-        pass
+        headers={"User-Agent":"Mozilla/5.0"}
+        r=requests.get(f"https://kbbi.kemdikbud.go.id/entri/{kata}", headers=headers, timeout=8)
+        if r.status_code==200 and "tidak ditemukan" not in r.text.lower():
+            soup=BeautifulSoup(r.text,'html.parser')
+            ol=soup.find('ol')
+            if ol and ol.find('li'):
+                arti=ol.find('li').get_text(" ", strip=True)[:500]
+                return {"bahasa":"Indonesia","jenis":"nomina/verba","arti":arti,"kapan":f"Kata baku, dipakai formal untuk makna '{kata}'","contoh":f"Penggunaan kata {kata} dalam kalimat baku","sumber":"kbbi.kemdikbud.go.id"}
+        r2=requests.get(f"https://kbbi.web.id/{kata}", headers=headers, timeout=8)
+        if r2.status_code==200:
+            soup2=BeautifulSoup(r2.text,'html.parser')
+            d=soup2.find('div', id='d1')
+            if d: return {"bahasa":"Indonesia","jenis":"kata baku","arti":d.get_text(" ", strip=True)[:500],"kapan":"Dipakai di tulisan resmi","contoh":"-","sumber":"kbbi.web.id"}
+    except: pass
     return None
 
 def cari_english(kata):
     try:
-        url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{kata}"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()[0]
-            meaning = data['meanings'][0]
-            definition = meaning['definitions'][0]
-            return {
-                "bahasa": "Inggris",
-                "jenis_kata": meaning.get('partOfSpeech', 'unknown'), # ini fungsi katanya: noun, verb, adjective
-                "arti": definition.get('definition', '-'),
-                "kapan": f"Digunakan sebagai {meaning.get('partOfSpeech')} dalam kalimat bahasa Inggris.",
-                "contoh": definition.get('example', f"Example using {kata}"),
-                "sumber": "dictionaryapi.dev"
-            }
-    except:
-        pass
+        r=requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{kata}", timeout=8)
+        if r.status_code==200:
+            data=r.json()[0]; meaning=data['meanings'][0]; defi=meaning['definitions'][0]
+            return {"bahasa":"Inggris","jenis":meaning.get('partOfSpeech',''),"arti":defi.get('definition','-'),"kapan":f"Sebagai {meaning.get('partOfSpeech')} dalam bahasa Inggris","contoh":defi.get('example','-'),"sumber":"dictionaryapi"}
+    except: pass
+    return None
+
+def cari_wikipedia(kata):
+    try:
+        r=requests.get(f"https://id.wikipedia.org/api/rest_v1/page/summary/{kata}", headers={"User-Agent":"Mozilla/5.0"}, timeout=8)
+        if r.status_code==200:
+            j=r.json()
+            if j.get('extract'): return j['extract'][:600]
+    except: pass
     return None
 
 def simpan_kata(kata, data):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
+    conn=sqlite3.connect(DB_PATH); c=conn.cursor()
     c.execute("INSERT OR REPLACE INTO kamus VALUES (?,?,?,?,?,?,?,?)",
-              (kata, data['bahasa'], data['jenis_kata'], data['arti'], data['kapan'], data['contoh'], data['sumber'], datetime.now().strftime("%Y-%m-%d")))
-    conn.commit()
+              (kata, data['bahasa'], data['jenis'], encode(data['arti']), encode(data['kapan']), encode(data['contoh']), data['sumber'], datetime.now().strftime("%Y-%m-%d")))
+    conn.commit(); conn.close()
+
+def cek_kamus(kata):
+    conn=sqlite3.connect(DB_PATH); c=conn.cursor()
+    c.execute("SELECT * FROM kamus WHERE kata=?", (kata,)); row=c.fetchone(); conn.close()
+    if row: return (row[0], row[1], row[2], decode(row[3]), decode(row[4]), decode(row[5]), row[6])
+    return None
+
+def cek_pengetahuan(q):
+    conn=sqlite3.connect(DB_PATH); c=conn.cursor()
+    c.execute("SELECT jawaban FROM pengetahuan WHERE kunci=?", (q.lower().strip(),))
+    row=c.fetchone()
+    if row:
+        conn.close()
+        return decode(row[0])
+    # cari mirip
+    for kunci in BUILTIN_QA.keys():
+        if kunci in q.lower():
+            conn.close()
+            return cek_pengetahuan(kunci)
     conn.close()
+    return None
 
-def cek_db(kata):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT * FROM kamus WHERE kata=?", (kata,))
-    row = c.fetchone()
-    conn.close()
-    return row
+# === [4] OTAK AI YANG JAWAB PERTANYAAN ===
+STOPWORDS={'yang','dan','itu','ini','apa','bagaimana','kapan','untuk','dengan','adalah','saya','kamu','di','ke','dari','apa','aja','sih','bro','bang'}
 
-def proses_belajar(prompt):
-    # Ambil semua kata, minimal 3 huruf, hilangkan angka/simbol
-    kata_kata = re.findall(r'\b[a-zA-Z]{3,}\b', prompt.lower())
-    kata_unik = list(set(kata_kata))
-    # Filter stopword simple biar gak spam
-    stopword = {'yang','dan','itu','ini','apa','bagaimana','kapan','untuk','dengan','adalah','saya','kamu','apa','aja','sih','bang','bro'}
-    baru = 0
-    for k in kata_unik:
-        if k in stopword: continue
-        if cek_db(k): continue
+def extract_keyword(prompt):
+    p=prompt.lower()
+    for pat in ["apa arti","arti kata","apa itu","apa maksud","jelaskan","what is","definisi"]:
+        if pat in p:
+            sisa=p.split(pat)[-1].strip()
+            sisa=re.sub(r'[^a-zA-Z ]','',sisa).strip()
+            if sisa: return sisa.split()[0]
+    words=re.findall(r'\b[a-z]{3,}\b', p)
+    words=[w for w in words if w not in STOPWORDS]
+    return max(words, key=len) if words else None
 
-        print(f" [>_<] kata baru terdeteksi: '{k}' -> lagi nyari di kamus...")
-        data = cari_kbbi(k)
-        if not data:
-            data = cari_english(k)
-
+def proses_belajar_semua_kata(prompt):
+    kata_kata=re.findall(r'\b[a-zA-Z]{3,}\b', prompt.lower())
+    baru=0
+    for k in set(kata_kata):
+        if k in STOPWORDS or len(k)<3: continue
+        if cek_kamus(k): continue
+        data=cari_kbbi(k)
+        if not data: data=cari_english(k)
         if data:
-            simpan_kata(k, data)
-            print(f" -> tersimpan! ({data['bahasa']} | {data['jenis_kata']})")
-            baru += 1
-        time.sleep(0.5) # biar gak di block
-    return baru, kata_unik
+            simpan_kata(k,data)
+            baru+=1
+            time.sleep(0.2)
+    return baru
 
-def banner():
-    print("\033[92m")
-    print("╔════════════════════════════════════╗")
-    print("║ KAMUS AI - TERMUX EDITION ║")
-    print("║ Auto-learn dari KBBI & Dict ║")
-    print("╚════════════════════════════════════╝\033[0m")
-    print("Perintah: /db = lihat database | /cari [kata] | /exit = keluar & clear\n")
+def ai_jawab(prompt):
+    # 1. cek pengetahuan bawaan dulu
+    jwb=cek_pengetahuan(prompt)
+    if jwb: return jwb
+
+    # 2. kalo nanya arti kata
+    keyword=extract_keyword(prompt)
+    if not keyword: return "Menarik, aku catat itu. Coba tanya lebih spesifik kayak 'apa itu "+prompt.split()[-1]+"'?"
+
+    # cek di kamus hidden
+    row=cek_kamus(keyword)
+    if row:
+        return f"Kata **{row[0]}** [{row[1]} | fungsi: {row[2]}]\nArti: {row[3]}\nKapan dipakai: {row[4]}\nContoh: {row[5]}"
+
+    # 3. kalo gak ada, cari online terus simpen
+    print(f"\033[90m [AI lagi mikir, nyari '{keyword}' di KBBI & Wikipedia...]\033[0m")
+    data=cari_kbbi(keyword)
+    if not data: data=cari_english(keyword)
+    wiki=cari_wikipedia(keyword)
+
+    if data:
+        simpan_kata(keyword, data)
+        jawaban=f"Menurut database ku (baru aku pelajari):\n**{keyword}** adalah {data['arti']}\nFungsi katanya sebagai {data['jenis']}. {data['kapan']}"
+        if wiki: jawaban+=f"\n\nPenjelasan tambahan: {wiki}"
+        return jawaban
+    elif wiki:
+        # simpen wiki sebagai pengetahuan
+        conn=sqlite3.connect(DB_PATH); c=conn.cursor()
+        c.execute("INSERT OR REPLACE INTO pengetahuan VALUES (?,?,?)",(keyword, encode(wiki), datetime.now().strftime("%Y-%m-%d")))
+        conn.commit(); conn.close()
+        return f"{keyword.capitalize()}: {wiki}"
+    else:
+        return f"Aku belum nemu arti '{keyword}' di database hidden ku maupun online. Coba pakai kata lain? Tapi kata itu sudah aku tandai dan akan aku pelajari nanti."
 
 def main():
-    init_db()
+    init_storage()
     clear()
-    banner()
-
+    print("\033[92m╔══════════════════════════════╗\n║ KAMUS AI - HIDDEN CORE ║\n║ DB: Hidden & Encrypted ║\n╚══════════════════════════════╝\033[0m")
+    print("Ketik pertanyaan bebas. Contoh: 'apa itu fotosintesis' | '/exit' untuk keluar & auto-clear\n")
     while True:
         try:
-            prompt = input("\033[93mKamu:\033[0m ").strip()
+            prompt=input("\033[93mKamu:\033[0m ").strip()
             if not prompt: continue
-
             if prompt.lower() in ["/exit","exit","keluar"]:
-                print("\nMembersihkan terminal...")
-                time.sleep(0.8)
-                clear()
-                break
+                print("Clearing..."); time.sleep(0.5); clear(); break
 
-            if prompt.startswith("/db"):
-                conn = sqlite3.connect(DB_NAME)
-                c = conn.cursor()
-                c.execute("SELECT kata, bahasa, jenis_kata FROM kamus ORDER BY tgl DESC LIMIT 20")
-                rows = c.fetchall()
-                print(f"\n\033[96m[DATABASE] Total {len(rows)} kata terakhir:\033[0m")
-                for r in rows: print(f" - {r[0]} [{r[1]} | {r[2]}]")
-                conn.close()
-                continue
-
-            if prompt.startswith("/cari "):
-                kata = prompt.split(" ")[1].lower()
-                row = cek_db(kata)
-                if row:
-                    print(f"\n\033[96mKata: {row[0]}\nBahasa: {row[1]}\nFungsi/Jenis: {row[2]}\nArti: {row[3]}\nKapan Dipakai: {row[4]}\nContoh: {row[5]}\033[0m\n")
-                else:
-                    print("Belum ada di database, coba ketik kata itu di chat biasa biar aku pelajari.")
-                continue
-
-            # === MODE BELAJAR OTOMATIS ===
-            baru, semua_kata = proses_belajar(prompt)
-
-            # === MODE JAWAB ===
-            # Cek apakah user nanya arti kata
-            row_terkait = None
-            for k in semua_kata:
-                r = cek_db(k)
-                if r:
-                    row_terkait = r
-                    break
-
-            print("\n\033[92mAI:\033[0m ", end="")
-            if baru > 0:
-                print(f"Aku baru aja belajar {baru} kata baru dari kalimat kamu! Database ku update. ")
-            if row_terkait:
-                print(f"Kata kunci '{row_terkait[0]}' itu fungsinya sebagai {row_terkait[2]} ({row_terkait[1]}). Artinya: {row_terkait[3]}")
-                print(f" -> Kapan dipakai: {row_terkait[4]}")
-                if row_terkait[5]!= "-": print(f" -> Contoh: {row_terkait[5]}")
-            else:
-                print("Oke noted, kalimat kamu sudah aku proses. Tanya aja '/cari [kata]' kalau mau detail arti kata yang sudah aku simpan.")
-            print("")
-
+            # belajar diam-diam semua kata
+            proses_belajar_semua_kata(prompt)
+            # jawab
+            jawaban=ai_jawab(prompt)
+            print(f"\n\033[96mAI:\033[0m {jawaban}\n")
         except KeyboardInterrupt:
-            clear()
-            break
+            clear(); break
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
