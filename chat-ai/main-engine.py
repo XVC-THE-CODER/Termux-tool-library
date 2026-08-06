@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/python
+#!/data/data/com.termux/files/usr/bin/python3
 import os, re, sqlite3, requests, json, time
 from datetime import datetime
 from bs4 import BeautifulSoup
