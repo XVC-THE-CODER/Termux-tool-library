@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Termux Lua Obfuscator v1.1 - English Simple + short_byte setting
+# Termux Lua Obfuscator v1.1
 
 PROJECT_FILE="./code-to-obfuscate.lua"
 RESULT_FILE="./code-obfuscate.lua"
@@ -146,8 +146,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         j_var = rand_name(damage) + "_j"
         h_var = rand_name(damage) + "_h"
 
-        lua_template = f"""-- SHORT BYTE OBFUSCATED
--- Layers: HTML Entity -> Hex -> Binary -> Algebra Math
+        lua_template = f"""-- OBFUSCATED BY TOOL
 {lua_vars_code}
 local {h0_var} = "{hex_str}"
 local {bin_var} = ""
@@ -202,8 +201,7 @@ print("[obfuscate] done | short_byte=on")
         i_var = rand_name(damage) + "_i"
         j_var = rand_name(damage) + "_j"
 
-        lua_template = f"""-- LONG BYTE OBFUSCATED
--- Layers: HTML Entity -> Hex -> Binary -> Algebra Math
+        lua_template = f"""-- OBFUSCATED BY TOOL
 {lua_vars_code}
 local {bin_var} = {bin_assembly}
 local {hex_var} = ""
