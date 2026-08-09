@@ -244,6 +244,22 @@ show_menu() {
 do_copy_with_retry() {
     local file="$1"
     local success=0
+
+    # === AUTO INSTALL TERMUX-API KALO BELUM ADA ===
+    if ! command -v termux-clipboard-set >/dev/null 2>&1; then
+        echo -e "${YELLOW}[!] termux-api belum terinstall${RESET}"
+        echo -e "${CYAN}[*] Auto download termux-api...${RESET}"
+        pkg update -y -o Dpkg::Options::="--force-confnew" 2>/dev/null
+        pkg install termux-api -y
+        if command -v termux-clipboard-set >/dev/null 2>&1; then
+            echo -e "${GREEN}[✓] termux-api berhasil diinstall otomatis${RESET}"
+        else
+            echo -e "${RED}[x] Auto install gagal, coba manual: pkg install termux-api${RESET}"
+            echo -e "${YELLOW}[!] Pastikan juga aplikasi Termux:API terinstall dari F-Droid${RESET}"
+            sleep 2
+        fi
+    fi
+
     echo -e "${YELLOW}[*] Mencoba copy ke clipboard 10x...${RESET}"
     for i in {1..10}; do
         if command -v termux-clipboard-set >/dev/null 2>&1; then
@@ -253,14 +269,14 @@ do_copy_with_retry() {
                 break
             fi
         else
-            echo -e "${RED}[!] termux-clipboard-set tidak ditemukan, install: pkg install termux-api${RESET}"
+            echo -e "${RED}[!] termux-clipboard-set masih tidak ditemukan${RESET}"
             break
         fi
         echo -e "${YELLOW}[.] Percobaan $i gagal, retry...${RESET}"
         sleep 0.3
     done
     if [ $success -eq 0 ] && command -v termux-clipboard-set >/dev/null 2>&1; then
-        echo -e "${RED}[x] Copy gagal setelah 10x percobaan${RESET}"
+        echo -e "${RED}[x] Copy gagal setelah 10x percobaan, coba buka manual: cat $file${RESET}"
     fi
 }
 
@@ -310,9 +326,12 @@ do_obfuscate() {
 
     if [ $test_ok -eq 1 ]; then
         cat "$tmp_out" > "$PROJECT_FILE"
+        # === BUAT FILE BARU obfuscate-code.lua SESUAI REQUEST ===
+        cat "$tmp_out" > "./obfuscate-code.lua"
         echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
         echo -e "${GREEN}[✓] OBFUSCATE BERHASIL!${RESET}"
         echo -e "${WHITE}File tersimpan: $PROJECT_FILE${RESET}"
+        echo -e "${WHITE}File baru   : ./obfuscate-code.lua (buat di-open)${RESET}"
         echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
         
         while true; do
@@ -331,9 +350,13 @@ do_obfuscate() {
                     break
                     ;;
                 3|open|o)
-                    echo -e "${CYAN}--- Isi $PROJECT_FILE ---${RESET}"
-                    cat "$PROJECT_FILE"
-                    echo -e "${CYAN}--- End ---${RESET}"
+                    echo -e "${YELLOW}[*] Menyiapkan obfuscate-code.lua...${RESET}"
+                    cp "$PROJECT_FILE" "./obfuscate-code.lua"
+                    echo -e "${GREEN}[*] Membuka nano obfuscate-code.lua (hasil obfuscate)${RESET}"
+                    echo -e "${CYAN}    Isinya adalah code obfuscate yang sudah jadi${RESET}"
+                    sleep 0.8
+                    nano "./obfuscate-code.lua"
+                    echo -e "${GREEN}[✓] File obfuscate-code.lua tersimpan${RESET}"
                     ;;
                 4|exit|e|q)
                     break
