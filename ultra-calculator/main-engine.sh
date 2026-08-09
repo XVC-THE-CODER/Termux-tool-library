@@ -28,7 +28,7 @@ cat <<'EOF'
   ╚═══╝    ╚═════╝
 EOF
 echo -e "${D}  Ultra Calculator by the creator tool${END}"
-echo -e "${D}  v9.0 | + - * : / % ² √ sin cos log | Way | Question | Mode${END}"
+echo -e "${D}  v10 | + - * : / % ² √ sin cos tan log | Way | Question | Mode${END}"
 echo ""
 }
 t(){
@@ -36,20 +36,23 @@ local key="$1"
 if [[ "$LANG_SET" == "en" ]]; then
 case "$key" in
 prompt) echo "UC> " ;;
-help_hint) echo "Type 'help' for help, 'way <expr>' for steps, 'question' for quiz, 'mode' for fraction/round, 'lang' to change language" ;;
+help_hint) echo "Type 'help' for help, 'way <expr>' for steps, 'question' for quiz, 'mode' to change, 'lang' language" ;;
 help) echo -e "
 ${Y}${BOLD}OPERATORS:${END}
-  ${G}+${END} add      ${G}-${END} sub  ${G}*${END} mul  ${G}:${END} div  ${G}/${END} per  ${G}%${END} percent
-  ${G}² ³ ^ √ ! sin cos tan log ln exp${END} -> all math formulas supported
+  ${G}+${END} add  ${G}-${END} sub  ${G}*${END} mul  ${G}:${END} div  ${G}/${END} per  ${G}%${END} percent
+  ${G}² ³ ^ √ ! sin cos tan log ln exp${END} -> all formulas supported (case insensitive: Sin, SIN, sin)
 ${Y}${BOLD}MODES:${END}
-  ${G}mode pecahan${END} / ${G}mode fraction${END} -> show fraction
-  ${G}mode bulatan${END} / ${G}mode round${END} -> show rounded
+  ${G}mode pecahan${END} / fraction -> 1/2 stays 1/2 simplified (2/4=1/2)
+  ${G}mode bulatan${END} / round -> 1/2 = 0.5
+${Y}${BOLD}ALGEBRA:${END}
+  Only 1 variable allowed, more than 1 = error
+  ${G}2x+3x${END} -> 5x  ${G}x=5${END}  ${G}2x+3=11${END} -> x=4
 ${Y}${BOLD}COMMANDS:${END}
   help, vars, history, clear, lang, mode, exit
-  ${G}way <expr>${END} -> ex: way 10:2+5*2
-  ${G}question${END} -> quiz easy/medium/hard/extreme/ultimate
+  ${G}way <expr>${END} -> steps
+  ${G}question${END} -> random quiz easy/medium/hard/extreme/ultimate
 " ;;
-bye) echo "Bye! Thanks for using UC!" ;;
+bye) echo "Bye! Thanks!" ;;
 invalid) echo "Invalid expression" ;;
 var_title) echo "-- VARIABLES --" ;;
 hist_title) echo "-- HISTORY --" ;;
@@ -71,6 +74,7 @@ per_label) echo "[per]" ;;
 need_bc) echo "Need bc: pkg install bc" ;;
 mode_title) echo "Current mode" ;;
 mode_changed) echo "Mode changed to" ;;
+var_multi) echo "Error: only 1 algebra variable allowed" ;;
 q_choose) echo "Choose difficulty:" ;;
 q_easy) echo "Easy" ;;
 q_med) echo "Medium" ;;
@@ -80,23 +84,25 @@ q_ult) echo "Ultimate" ;;
 q_ask) echo "Question" ;;
 q_correct) echo "Correct!" ;;
 q_wrong) echo "Wrong! Answer is" ;;
-q_score) echo "Score" ;;
 esac
 else
 case "$key" in
 prompt) echo "UC> " ;;
-help_hint) echo "Ketik 'help' bantuan, 'way <rumus>' cara, 'question' kuis, 'mode' ganti pecahan/bulatan, 'lang' bahasa" ;;
+help_hint) echo "Ketik 'help' bantuan, 'way <rumus>' cara, 'question' kuis, 'mode' pecahan/bulatan" ;;
 help) echo -e "
 ${Y}${BOLD}OPERATOR:${END}
   ${G}+${END} tambah ${G}-${END} kurang ${G}*${END} kali ${G}:${END} bagi ${G}/${END} per ${G}%${END} persen
-  ${G}² ³ ^ √ ! sin cos tan log ln exp${END} -> semua rumus support
+  ${G}² ³ ^ √ ! sin cos tan log ln exp${END} -> semua rumus, case insensitive: Sin, SIN tetap sin
 ${Y}${BOLD}MODE:${END}
-  ${G}mode pecahan${END} -> hasil pecahan
-  ${G}mode bulatan${END} -> hasil pembulatan
+  ${G}mode pecahan${END} -> 1/2 tetap 1/2, 2/4 jadi 1/2 (disederhanakan)
+  ${G}mode bulatan${END} -> 1/2 = 0.5
+${Y}${BOLD}ALJABAR:${END}
+  Hanya 1 variabel, lebih dari 1 = error
+  ${G}2x+3x${END} -> 5x  ${G}x=5${END}  ${G}2x+3=11${END} -> x=4
 ${Y}${BOLD}PERINTAH:${END}
   help, vars, history, clear, lang, mode, exit
-  ${G}way <rumus>${END} -> ex: way 10:2+5*2
-  ${G}question${END} -> kuis easy/medium/hard/extreme/ultimate
+  ${G}way <rumus>${END} -> cara
+  ${G}question${END} -> kuis acak easy/medium/hard/extreme/ultimate
 " ;;
 bye) echo "Bye! Makasih!" ;;
 invalid) echo "Ekspresi tidak valid" ;;
@@ -120,6 +126,7 @@ per_label) echo "[per]" ;;
 need_bc) echo "Butuh bc: pkg install bc" ;;
 mode_title) echo "Mode saat ini" ;;
 mode_changed) echo "Mode diganti ke" ;;
+var_multi) echo "Error: hanya 1 variabel aljabar diperbolehkan" ;;
 q_choose) echo "Pilih tingkat kesulitan:" ;;
 q_easy) echo "Easy" ;;
 q_med) echo "Medium" ;;
@@ -129,20 +136,26 @@ q_ult) echo "Ultimate" ;;
 q_ask) echo "Soal" ;;
 q_correct) echo "Benar!" ;;
 q_wrong) echo "Salah! Jawabannya" ;;
-q_score) echo "Skor" ;;
 esac
 fi
 }
 check_bc(){
 if ! command -v bc >/dev/null 2>&1; then echo -e "${R}$(t need_bc)${END}"; exit 1; fi
 }
+count_vars(){
+local e="$1"
+local lower=$(echo "$e" | tr '[:upper:]' '[:lower:]')
+lower=$(echo "$lower" | sed -E 's/sin|cos|tan|log|ln|exp|sqrt|fact//g')
+local count=$(echo "$lower" | grep -oE '[a-z]' | sort -u | wc -l)
+echo "$count"
+}
 normalize_expr(){
 local e="$1"
+e=$(echo "$e" | tr '[:upper:]' '[:lower:]')
 e=$(echo "$e" | sed -e 's/²/^2/g' -e 's/³/^3/g' -e 's/⁴/^4/g' -e 's/⁵/^5/g' -e 's/⁶/^6/g' -e 's/⁷/^7/g' -e 's/⁸/^8/g' -e 's/⁹/^9/g' -e 's/⁰/^0/g' -e 's/¹/^1/g')
 e=$(echo "$e" | sed -e 's/×/*/g' -e 's/÷/:/g' -e 's/π/3.1415926535/g')
 e=$(echo "$e" | sed 's/√/sqrt/g')
 e=$(echo "$e" | sed -E 's/sqrt([0-9]+)/sqrt(\1)/g')
-e=$(echo "$e" | sed -E 's/sqrt([a-zA-Z_][a-zA-Z0-9_]*)/sqrt(\1)/g')
 e=$(echo "$e" | sed -E 's#([0-9.]+)%#( \1/100 )#g')
 e=$(echo "$e" | sed -E 's#sin\(([0-9.]+)\)#s(\1*3.1415926535/180)#g')
 e=$(echo "$e" | sed -E 's#cos\(([0-9.]+)\)#c(\1*3.1415926535/180)#g')
@@ -158,10 +171,10 @@ echo "$e"
 }
 add_implicit_mul(){
 local e="$1"
-e=$(echo "$e" | sed -E 's/([0-9])([a-zA-Z_])/\1*\2/g')
+e=$(echo "$e" | sed -E 's/([0-9])([a-z_])/\1*\2/g')
 e=$(echo "$e" | sed -E 's/([0-9])\(/\1*\(/g')
 e=$(echo "$e" | sed -E 's/\)\(/\)*\(/g')
-e=$(echo "$e" | sed -E 's/\)([a-zA-Z0-9_])/\)*\1/g')
+e=$(echo "$e" | sed -E 's/\)([a-z0-9_])/\)*\1/g')
 echo "$e"
 }
 replace_vars(){
@@ -252,11 +265,11 @@ local diff_input="$1"
 local diff=$(echo "$diff_input" | tr '[:upper:]' '[:lower:]' | xargs)
 if [[ -z "$diff" ]]; then
 echo -e "${Y}$(t q_choose)${END}"
-echo "1. Easy / $(t q_easy)"
-echo "2. Medium / $(t q_med)"
-echo "3. Hard / $(t q_hard)"
-echo "4. Extreme / $(t q_ext)"
-echo "5. Ultimate / $(t q_ult)"
+echo "1. $(t q_easy) (random + - * :)"
+echo "2. $(t q_med) (random () ^ √ %)"
+echo "3. $(t q_hard) (random linear equation)"
+echo "4. $(t q_ext) (random sin cos log)"
+echo "5. $(t q_ult) (random ultimate)"
 echo -ne "> "
 read -r diff
 diff=$(echo "$diff" | tr '[:upper:]' '[:lower:]' | xargs)
@@ -271,27 +284,40 @@ esac
 local q=""
 local ans=""
 if [[ "$diff" == "easy" ]]; then
-a=$((RANDOM%20+1)); b=$((RANDOM%20+1)); ops=("+" "-" "*" ":"); op=${ops[$((RANDOM%4))]}
-if [[ "$op" == ":" ]]; then b=$((RANDOM%9+2)); a=$((b*(RANDOM%10+1))); fi
-q="$a$op$b"; ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}')
+a=$((RANDOM%50+1)); b=$((RANDOM%50+1)); ops=("+" "-" "*" ":"); op=${ops[$((RANDOM%4))]}
+if [[ "$op" == ":" ]]; then b=$((RANDOM%9+2)); a=$((b*(RANDOM%12+1))); fi
+q="$a$op$b"
+ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}')
 elif [[ "$diff" == "medium" ]]; then
-a=$((RANDOM%10+1)); b=$((RANDOM%10+1)); c=$((RANDOM%10+1))
-types=$((RANDOM%4))
-if [[ $types -eq 0 ]]; then q="($a+$b)*$c"; elif [[ $types -eq 1 ]]; then q="${a}²+$b:$c"; elif [[ $types -eq 2 ]]; then q="√$((b*b))+$a*$c"; else q="$a%*$b+$c"; fi
+a=$((RANDOM%20+1)); b=$((RANDOM%20+1)); c=$((RANDOM%10+1)); d=$((RANDOM%5+1))
+types=$((RANDOM%5))
+if [[ $types -eq 0 ]]; then q="($a+$b)*$c"
+elif [[ $types -eq 1 ]]; then q="${a}²+$b:$c"
+elif [[ $types -eq 2 ]]; then q="√$((b*b))+$a*$c"
+elif [[ $types -eq 3 ]]; then q="$a%*$b+$c"
+else q="(${a}+${b})*${c}:${d}"
+fi
 ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}')
 elif [[ "$diff" == "hard" ]]; then
-a=$((RANDOM%8+2)); x=$((RANDOM%10+1)); b=$((RANDOM%20+1)); c=$((a*x+b)); q="${a}x+${b}=${c}"; ans="$x"
+a=$((RANDOM%8+2)); x=$((RANDOM%15+1)); b=$((RANDOM%30+1)); c=$((a*x+b))
+q="${a}x+${b}=${c}"
+ans="$x"
 elif [[ "$diff" == "extreme" ]]; then
-types=$((RANDOM%5))
+types=$((RANDOM%6))
 if [[ $types -eq 0 ]]; then q="sin(30)"; ans="0.5"
 elif [[ $types -eq 1 ]]; then q="cos(60)"; ans="0.5"
 elif [[ $types -eq 2 ]]; then q="sin(90)"; ans="1"
-elif [[ $types -eq 3 ]]; then q="log(100)"; ans="2"
-else q="√$((16)) + 5! : 10"; ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}'); fi
+elif [[ $types -eq 3 ]]; then q="cos(0)"; ans="1"
+elif [[ $types -eq 4 ]]; then q="log(100)"; ans="2"
+else q="√$((25)) + 5! : 20"; ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}')
+fi
 else
-a=$((RANDOM%5+2)); b=$((RANDOM%9+1)); c=$((RANDOM%9+1)); d=$((RANDOM%5+1))
-q="(${a}²+√$((b*b))):$c + sin(30)*$d + $b!"
-ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}')
+a=$((RANDOM%7+2)); b=$((RANDOM%12+1)); c=$((RANDOM%9+1)); d=$((RANDOM%6+1)); e=$((RANDOM%4+2))
+types=$((RANDOM%3))
+if [[ $types -eq 0 ]]; then q="(${a}²+√$((b*b))):$c + sin(30)*$d + $e!"
+elif [[ $types -eq 1 ]]; then q="(${a}x+${b}=${c}) -> x? (a=$a,b=$b,c=$c)"; ans=$(( (c-b)/a )); q="${a}x+${b}=${c}"
+else q="(${a}+${b})*${c} - √$((d*d*4)) + ${e}²"; fi
+if [[ "$q" != *"="* ]]; then ans=$(eval_numeric_full "$q" | cut -d'|' -f1 | awk '{printf "%g", $1}'); fi
 fi
 echo -e "${Y}$(t q_ask) [$diff]: ${W}$q${END}"
 echo -ne "> "
@@ -328,9 +354,9 @@ continue
 fi
 if [[ "$low" == mode* ]]; then
 marg=$(echo "$raw" | cut -c5- | xargs | tr '[:upper:]' '[:lower:]')
-if [[ "$marg" == "pecahan" || "$marg" == "fraction" ]]; then MODE="pecahan"; echo -e "${Y}$(t mode_changed): pecahan/fraction${END}"
-elif [[ "$marg" == "bulatan" || "$marg" == "round" || "$marg" == "bulat" ]]; then MODE="bulatan"; echo -e "${Y}$(t mode_changed): bulatan/round${END}"
-else echo -e "${D}$(t mode_title): $MODE${END} - use: mode pecahan / mode bulatan"; fi
+if [[ "$marg" == "pecahan" || "$marg" == "fraction" ]]; then MODE="pecahan"; echo -e "${Y}$(t mode_changed): pecahan/fraction (1/2 tetap 1/2, 2/4=1/2)${END}"
+elif [[ "$marg" == "bulatan" || "$marg" == "round" || "$marg" == "bulat" ]]; then MODE="bulatan"; echo -e "${Y}$(t mode_changed): bulatan/round (1/2=0.5)${END}"
+else echo -e "${D}$(t mode_title): $MODE - use: mode pecahan / mode bulatan${END}"; fi
 continue
 fi
 case "$low" in
@@ -341,6 +367,8 @@ lang|language|bahasa) choose_language; continue ;;
 vars) echo -e "\n${M}${BOLD}$(t var_title)${END}"; for k in "${!VARS[@]}"; do echo -e "  ${C}$k${END} = ${VARS[$k]}"; done; echo; continue ;;
 history) echo -e "\n${M}${BOLD}$(t hist_title)${END}"; i=1; for h in "${HIST[@]}"; do echo -e "  ${D}$i.${END} $h"; i=$((i+1)); done; echo; continue ;;
 esac
+varcount=$(count_vars "$input")
+if [[ "$varcount" -gt 1 ]]; then echo -e "${R}$(t var_multi)${END}"; continue; fi
 has_bagi=0; has_per=0
 [[ "$raw" == *":"* ]] && has_bagi=1
 [[ "$raw" == *"/"* ]] && has_per=1
@@ -361,13 +389,16 @@ if echo "$tmp2" | grep -q -E '[a-zA-Z]'; then var=$(echo "$tmp2" | grep -o -E '[
 eval_res=$(eval_numeric_full "$input"); res=$(echo "$eval_res" | cut -d'|' -f1)
 if [[ -z "$res" ]]; then echo -e "${R}$(t invalid)${END}"; continue; fi
 res_f=$(echo "$res" | awk '{printf "%g", $1}')
-if [[ "$MODE" == "bulatan" ]]; then res_f=$(printf "%.0f" "$res"); fi
+if [[ "$MODE" == "pecahan" && $has_per -eq 1 ]]; then
+frac=$(to_frac "$res"); res_f="$frac"
+else
+if [[ "$MODE" == "bulatan" ]]; then res_f=$(echo "$res" | awk '{printf "%g", $1}'); fi
+fi
 VARS[ans]=$res_f
 out="  ${Y}➜ ${W}${BOLD}$res_f${END}"
-if [[ "$MODE" == "pecahan" ]]; then
-if [[ $has_per -eq 1 ]]; then frac=$(to_frac "$res"); [[ "$frac" != "$res_f" ]] && out="$out ${D}= $frac $(t per_label)${END}" || out="$out ${D}$(t per_label)${END}"; elif [[ $has_bagi -eq 1 ]]; then out="$out ${D}$(t bagi_label)${END}"; fi
-else
-out="$out ${D}[bulatan/round]${END}"
+if [[ "$MODE" == "pecahan" && $has_per -eq 1 ]]; then out="$out ${D}$(t per_label) simplified${END}"
+elif [[ $has_bagi -eq 1 ]]; then out="$out ${D}$(t bagi_label)${END}"
+elif [[ $has_per -eq 1 ]]; then out="$out ${D}$(t per_label)${END}"
 fi
 echo -e "$out"
 HIST+=("$input = $res_f")
