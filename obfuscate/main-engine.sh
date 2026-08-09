@@ -1,13 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Termux Lua Obfuscator v3.0 - SHORT Rangkuman Edition
-# Fix: /tmp/gen_obf.py error, short code, auto install api, new open behavior
+# Termux Lua Obfuscator v1.1 - English Simple + short_byte setting
 
 PROJECT_FILE="./code-to-obfuscate.lua"
 RESULT_FILE="./code-obfuscate.lua"
 BACKUP_FILE="$HOME/.obfuscate_original.lua"
 SETTINGS_FILE="$HOME/.obfuscate_settings"
 ENGINE_FILE="$HOME/.obfuscate_engine.py"
-CACHE_DIR="$HOME/.cache"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,18 +20,23 @@ init_settings() {
         echo "oneline=off" > "$SETTINGS_FILE"
         echo "damage=3" >> "$SETTINGS_FILE"
         echo "anti_bug=on" >> "$SETTINGS_FILE"
+        echo "short_byte=on" >> "$SETTINGS_FILE"
+    fi
+    # add short_byte if old config
+    if ! grep -q "short_byte" "$SETTINGS_FILE"; then
+        echo "short_byte=on" >> "$SETTINGS_FILE"
     fi
     source "$SETTINGS_FILE"
 }
 
 init_engine() {
-    mkdir -p "$CACHE_DIR"
+    mkdir -p "$HOME/.cache"
     cat > "$ENGINE_FILE" << 'PYEOF'
 import sys, os, random, subprocess, tempfile, re
 
 def rand_name(damage):
     if damage >= 4:
-        parts = ["_", "__", "_0x", "_0X", "_Alj", "_Bin", "_Hex", "_Ent"]
+        parts = ["_", "__", "_0x", "_0X", "_A", "_B", "_H", "_E"]
         base = random.choice(parts)
         suffix = ''.join(random.choices("0123456789ABCDEF", k=random.randint(3,6)))
         return base + suffix
@@ -44,9 +47,8 @@ def rand_name(damage):
 
 def gen_base_vars(damage):
     count = 3 if damage <=2 else 4 if damage==3 else 5
-    names = []
-    vals = {}
-    for i in range(count):
+    names, vals = [], {}
+    for _ in range(count):
         n = rand_name(damage)
         while n in names:
             n = rand_name(damage)
@@ -55,7 +57,6 @@ def gen_base_vars(damage):
     return names, vals
 
 def alg_const(n, var_names):
-    # generate algebra expression that evaluates to n using var_names, always valid
     v = random.choice(var_names)
     v2 = random.choice(var_names)
     one = f"({v}//{v})"
@@ -65,36 +66,52 @@ def alg_const(n, var_names):
     if n == 1:
         return one
     if n == 2:
-        # 1+1
         return f"(({v}//{v})+({v2}//{v2}))"
     if n == 4:
-        # 2+2
         a = f"(({v}//{v})+({v2}//{v2}))"
         return f"({a}+{a})"
     if n == 16:
-        # 4*4
         a = alg_const(4, var_names)
         return f"({a}*{a})"
     if n < 10:
-        # sum of ones
         return "(" + "+".join([f"({random.choice(var_names)}//{random.choice(var_names)})" for _ in range(n)]) + ")"
-    # fallback
     return f"({n})"
 
-def obfuscate_file(input_path, output_path, oneline, damage, anti_bug):
+def expr_for_bit(bit, var_names, damage):
+    v = random.choice(var_names)
+    v2 = random.choice(var_names)
+    while v2 == v and len(var_names)>1:
+        v2 = random.choice(var_names)
+    if bit == '0':
+        templates = [
+            f"({v}-{v})",
+            f"(({v}*2)-({v}*2))",
+            f"(({v}+{v2})-({v}+{v2}))",
+            f"({v}*0)",
+        ]
+        if damage >= 3:
+            templates += [f"(({v}*{v2}+{v2}*{v})-({v}*{v2}*2))", f"(({v}//{v})-1)"]
+    else:
+        templates = [
+            f"({v}//{v})",
+            f"(({v}*2)//({v}*2))",
+            f"(({v}+{v2})//({v}+{v2}))",
+        ]
+        if damage >= 3:
+            templates += [f"(({v}*{v2})//({v}*{v2}))"]
+    safe = [t for t in templates if "//0" not in t and "/0" not in t]
+    return random.choice(safe if safe else [f"({v}-{v})" if bit=='0' else f"({v}//{v})"])
+
+def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte):
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
         original = f.read()
     if not original.strip():
         print("EMPTY")
         return False
 
-    # Layer 1: HTML Entity
     html_entity = ''.join(f"&#{ord(c)};" for c in original)
-    # Layer 2: Hex String
     hex_str = ''.join(f"{ord(ch):02x}" for ch in html_entity)
-    # Layer 3: Binary (we will generate binary in Lua from hex, not store, to make short)
-    # But we still compute binary to validate concept
-    # binary_str = ''.join(f"{int(ch,16):04b}" for ch in hex_str)
+    binary_str = ''.join(f"{int(ch,16):04b}" for ch in hex_str)
 
     var_names, var_vals = gen_base_vars(damage)
     lua_vars = []
@@ -108,31 +125,29 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug):
             lua_vars.append(f"local {junk_name} = {base} * {random.randint(1,5)}")
             lua_vars.append(f"if ({base}-{base}=={alg_const(1,var_names)}) then local {rand_name(damage)} = {alg_const(0,var_names)} end")
 
-    # generate algebra constants for 0,1,2,4,16 using random vars each time for variation
-    e0 = alg_const(0, var_names)
-    e1 = alg_const(1, var_names)
-    e2 = alg_const(2, var_names)
-    e4 = alg_const(4, var_names)
-    e16 = alg_const(16, var_names)
-
-    bin_var = rand_name(damage) + "_BIN"
-    hex_var = rand_name(damage) + "_HEX"
-    ent_var = rand_name(damage) + "_ENT"
-    code_var = rand_name(damage) + "_CODE"
-    h0_var = rand_name(damage) + "_H0"
-    b_var = rand_name(damage) + "_b"
-    n_var = rand_name(damage) + "_n"
-    i_var = rand_name(damage) + "_i"
-    j_var = rand_name(damage) + "_j"
-    h_var = rand_name(damage) + "_h"
-
     lua_vars_code = "\n".join(lua_vars)
 
-    # SHORT TEMPLATE - rangkuman jadi pendek
-    # Store only hex_str (1000 chars) not binary (4000 chars) -> 75% lebih pendek
-    # Binary tetap ada tapi di-generate di Lua via aljabar, jadi tetap ada layer binary
-    lua_template = f"""-- SHORT OBFUSCATED BY TERMUX OBFUSCATE TOOL
--- Layers: HTML Entity -> Hex -> Binary -> Algebra Math (RANGKUMAN PENDEK)
+    # SHORT BYTE MODE = ON -> short summarized code
+    if short_byte == "on":
+        e0 = alg_const(0, var_names)
+        e1 = alg_const(1, var_names)
+        e2 = alg_const(2, var_names)
+        e4 = alg_const(4, var_names)
+        e16 = alg_const(16, var_names)
+
+        bin_var = rand_name(damage) + "_BIN"
+        hex_var = rand_name(damage) + "_HEX"
+        ent_var = rand_name(damage) + "_ENT"
+        code_var = rand_name(damage) + "_CODE"
+        h0_var = rand_name(damage) + "_H0"
+        b_var = rand_name(damage) + "_b"
+        n_var = rand_name(damage) + "_n"
+        i_var = rand_name(damage) + "_i"
+        j_var = rand_name(damage) + "_j"
+        h_var = rand_name(damage) + "_h"
+
+        lua_template = f"""-- SHORT BYTE OBFUSCATED
+-- Layers: HTML Entity -> Hex -> Binary -> Algebra Math
 {lua_vars_code}
 local {h0_var} = "{hex_str}"
 local {bin_var} = ""
@@ -164,11 +179,55 @@ local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumb
 local _load=loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
-print("[OBFUSCATE] berhasil | short version")
+print("[obfuscate] done | short_byte=on")
+"""
+    else:
+        # LONG BYTE MODE = OFF -> very long per-bit algebra (original long version)
+        chunk_size = 50 if damage <=3 else 30
+        chunks = []
+        for i in range(0, len(binary_str), chunk_size):
+            chunk_bits = binary_str[i:i+chunk_size]
+            exprs = [expr_for_bit(b, var_names, damage) for b in chunk_bits]
+            chunk_code = "..".join(exprs)
+            chunks.append(f"({chunk_code})")
+        bin_assembly = "..".join(chunks) if len(chunks)>1 else chunks[0]
+
+        bin_var = rand_name(damage) + "_BIN"
+        hex_var = rand_name(damage) + "_HEX"
+        ent_var = rand_name(damage) + "_ENT"
+        code_var = rand_name(damage) + "_CODE"
+        b_var = rand_name(damage) + "_b"
+        n_var = rand_name(damage) + "_n"
+        h_var = rand_name(damage) + "_h"
+        i_var = rand_name(damage) + "_i"
+        j_var = rand_name(damage) + "_j"
+
+        lua_template = f"""-- LONG BYTE OBFUSCATED
+-- Layers: HTML Entity -> Hex -> Binary -> Algebra Math
+{lua_vars_code}
+local {bin_var} = {bin_assembly}
+local {hex_var} = ""
+for {i_var}=1, #{bin_var}, 4 do
+local {b_var} = {bin_var}:sub({i_var},{i_var}+3)
+local {n_var} = 0
+for {j_var}=1,4 do
+{n_var} = {n_var}*2 + ({b_var}:sub({j_var},{j_var})=="1" and 1 or 0)
+end
+{hex_var} = {hex_var} .. string.format("%x", {n_var})
+end
+local {ent_var} = ""
+for {i_var}=1, #{hex_var}, 2 do
+local {h_var} = {hex_var}:sub({i_var},{i_var}+1)
+{ent_var} = {ent_var} .. string.char(tonumber({h_var},16))
+end
+local {code_var} = {ent_var}:gsub("&#(%d+);", function(n) return string.char(tonumber(n)) end)
+local _load = loadstring or load
+local _ok, _fn = pcall(_load, {code_var})
+if _ok and _fn then pcall(_fn) end
+print("[obfuscate] done | short_byte=off")
 """
 
     final_code = lua_template
-
     if oneline == "on":
         final_code = final_code.replace("\n", " ")
         final_code = re.sub(r'\s+', ' ', final_code)
@@ -203,14 +262,15 @@ print("[OBFUSCATE] berhasil | short version")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("usage: engine.py <input> <output> <oneline> <damage> <anti_bug>")
+        print("usage: engine.py <input> <output> <oneline> <damage> <anti_bug> <short_byte>")
         sys.exit(1)
     inp = sys.argv[1]
     outp = sys.argv[2]
     oneline = sys.argv[3] if len(sys.argv)>3 else "off"
     damage = int(sys.argv[4]) if len(sys.argv)>4 else 3
     anti_bug = sys.argv[5] if len(sys.argv)>5 else "on"
-    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug)
+    short_byte = sys.argv[6] if len(sys.argv)>6 else "on"
+    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug, short_byte)
     print("OK" if ok else "FAIL")
     sys.exit(0 if ok else 2)
 PYEOF
@@ -220,24 +280,24 @@ PYEOF
 show_banner() {
     clear
     echo -e "${CYAN}"
-    echo "   ____  ____  ______ _   _  ____   ____    _   _____ _____ "
-    echo "  / __ \| __ )|  ___/| | | |/ ___| / ___|  / \ |_   _| ____|"
-    echo " | |  | |  _ \| |_   | | | |\___ \| |     / _ \  | | |  _|  "
-    echo " | |__| | |_) |  _|  | |_| | ___) | |___ / ___ \ | | | |___ "
-    echo "  \____/|____/|_|     \___/ |____/ \____/_/   \_\|_| |_____|"
+    echo "██████╗ ███████╗███████╗ ██████╗████████╗"
+    echo "██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝"
+    echo "██████╔╝█████╗  ███████╗██║        ██║   "
+    echo "██╔══██╗██╔══╝  ╚════██║██║        ██║   "
+    echo "██████╔╝██║     ███████║╚██████╗   ██║   "
+    echo "╚═════╝ ╚═╝     ╚══════╝ ╚═════╝   ╚═╝   "
     echo -e "${RESET}"
-    echo -e "${WHITE}         Termux Lua Obfuscator v3.0 - SHORT Edition${RESET}"
-    echo -e "${YELLOW}         HTML Entity > Hex > Binary > Algebra (Rangkuman Pendek)${RESET}"
+    echo -e "${WHITE}  Tool Lua Obfuscator v1.1${RESET}"
     echo ""
 }
 
 show_menu() {
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-    echo -e "  ${WHITE}[ MENU ]${RESET}"
-    echo -e "  ${YELLOW}start${RESET}   - Buat & obfuscate code lua (auto hapus code lama)"
-    echo -e "  ${YELLOW}setting${RESET} - Atur oneline & damage level"
-    echo -e "  ${YELLOW}exit${RESET}    - Keluar tool"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${GREEN}----------------------------------------${RESET}"
+    echo -e "  ${WHITE}MENU${RESET}"
+    echo -e "  ${YELLOW}start${RESET}   - create and obfuscate lua"
+    echo -e "  ${YELLOW}setting${RESET} - open settings"
+    echo -e "  ${YELLOW}exit${RESET}    - exit tool"
+    echo -e "${GREEN}----------------------------------------${RESET}"
     echo ""
     echo -ne "${CYAN}obfuscate > ${RESET}"
 }
@@ -246,36 +306,33 @@ do_copy_with_retry() {
     local file="$1"
     local success=0
     if ! command -v termux-clipboard-set >/dev/null 2>&1; then
-        echo -e "${YELLOW}[!] termux-api belum terinstall${RESET}"
-        echo -e "${CYAN}[*] Auto download termux-api...${RESET}"
+        echo -e "${YELLOW}[!] termux-api not installed${RESET}"
+        echo -e "${CYAN}[*] auto download termux-api...${RESET}"
         pkg update -y -o Dpkg::Options::="--force-confnew" 2>/dev/null
         pkg install termux-api -y
         if command -v termux-clipboard-set >/dev/null 2>&1; then
-            echo -e "${GREEN}[✓] termux-api berhasil diinstall otomatis${RESET}"
+            echo -e "${GREEN}[ok] termux-api installed${RESET}"
         else
-            echo -e "${RED}[x] Auto install gagal, coba manual: pkg install termux-api${RESET}"
-            echo -e "${YELLOW}[!] Pastikan aplikasi Termux:API dari F-Droid terinstall${RESET}"
+            echo -e "${RED}[fail] install failed, try: pkg install termux-api${RESET}"
+            echo -e "${YELLOW}[!] also need Termux:API app from F-Droid${RESET}"
             sleep 2
         fi
     fi
-    echo -e "${YELLOW}[*] Mencoba copy ke clipboard 10x...${RESET}"
+    echo -e "${YELLOW}[*] copy to clipboard, 10 tries...${RESET}"
     for i in {1..10}; do
         if command -v termux-clipboard-set >/dev/null 2>&1; then
             if termux-clipboard-set < "$file"; then
-                echo -e "${GREEN}[✓] Copy berhasil di percobaan ke-$i${RESET}"
+                echo -e "${GREEN}[ok] copy success try $i${RESET}"
                 success=1
                 break
             fi
         else
-            echo -e "${RED}[!] termux-clipboard-set masih tidak ditemukan${RESET}"
+            echo -e "${RED}[!] clipboard tool not found${RESET}"
             break
         fi
-        echo -e "${YELLOW}[.] Percobaan $i gagal, retry...${RESET}"
+        echo -e "${YELLOW}[.] try $i failed, retry...${RESET}"
         sleep 0.3
     done
-    if [ $success -eq 0 ] && command -v termux-clipboard-set >/dev/null 2>&1; then
-        echo -e "${RED}[x] Copy gagal setelah 10x${RESET}"
-    fi
 }
 
 do_obfuscate() {
@@ -284,30 +341,34 @@ do_obfuscate() {
         tmp_out="/data/data/com.termux/files/usr/tmp/obf_temp.lua"
     fi
     init_settings
-    echo -e "${CYAN}    oneline: $oneline | damage: $damage | anti_bug: $anti_bug${RESET}"
-    echo -e "${YELLOW}[*] Backup original...${RESET}"
+    echo -e "${CYAN}  settings: oneline=$oneline damage=$damage anti_bug=$anti_bug short_byte=$short_byte${RESET}"
+    echo -e "${YELLOW}[*] backup original...${RESET}"
     cp "$PROJECT_FILE" "$BACKUP_FILE"
-    echo -e "${YELLOW}[*] Engine short rangkuman...${RESET}"
-    echo -e "${YELLOW}    Layer 1: HTML Entity, Layer 2: Hex, Layer 3: Binary->Algebra (pendek)${RESET}"
-    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug"
+    if [ "$short_byte" = "on" ]; then
+        echo -e "${YELLOW}[*] mode: short_byte=on (short code)${RESET}"
+    else
+        echo -e "${YELLOW}[*] mode: short_byte=off (long code)${RESET}"
+    fi
+    echo -e "${YELLOW}[*] obfuscate: html entity > hex > binary > algebra${RESET}"
+    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte"
     local status=$?
     if [ $status -ne 0 ] || [ ! -f "$tmp_out" ]; then
-        echo -e "${RED}[x] Obfuscate gagal!${RESET}"
+        echo -e "${RED}[fail] obfuscate failed${RESET}"
         return 1
     fi
-    echo -e "${YELLOW}[*] Testing 5x biar bisa dibaca komputer...${RESET}"
+    echo -e "${YELLOW}[*] test 5 times...${RESET}"
     local test_ok=0
     for t in {1..5}; do
         if command -v luac >/dev/null 2>&1; then
             if luac -p "$tmp_out" >/dev/null 2>&1; then
-                echo -e "${GREEN}    [✓] Test $t: OK (short version)${RESET}"
+                echo -e "${GREEN}  [ok] test $t: syntax ok${RESET}"
                 test_ok=1
             else
-                echo -e "${RED}    [x] Test $t: syntax error, regen...${RESET}"
-                python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug"
+                echo -e "${RED}  [fail] test $t: syntax error, regen...${RESET}"
+                python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte"
             fi
         else
-            echo -e "${GREEN}    [✓] Test $t: python logic OK${RESET}"
+            echo -e "${GREEN}  [ok] test $t: logic ok${RESET}"
             test_ok=1
             break
         fi
@@ -316,29 +377,27 @@ do_obfuscate() {
     if [ $test_ok -eq 1 ]; then
         cat "$tmp_out" > "$PROJECT_FILE"
         cat "$tmp_out" > "$RESULT_FILE"
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-        echo -e "${GREEN}[✓] OBFUSCATE BERHASIL - VERSI PENDEK!${RESET}"
-        echo -e "${WHITE}File input : $PROJECT_FILE (sudah jadi pendek)${RESET}"
-        echo -e "${WHITE}File hasil : $RESULT_FILE (file baru, ga numpuk)${RESET}"
-        wc -c "$RESULT_FILE" | awk '{print "Ukuran   : " $1 " bytes (short)"}'
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -e "${GREEN}[ok] obfuscate success!${RESET}"
+        echo -e "${WHITE}input : $PROJECT_FILE${RESET}"
+        echo -e "${WHITE}output: $RESULT_FILE (new file)${RESET}"
+        wc -c "$RESULT_FILE" | awk '{print "size  : " $1 " bytes"}'
+        echo -e "${GREEN}----------------------------------------${RESET}"
         while true; do
             echo ""
-            echo -e "${CYAN}Pilihan: [1] copy  [2] recreate  [3] open  [4] exit${RESET}"
-            echo -ne "${YELLOW}pilih > ${RESET}"
+            echo -e "${CYAN}options: [1] copy  [2] recreate  [3] open  [4] exit${RESET}"
+            echo -ne "${YELLOW}select > ${RESET}"
             read -r choice
             case "$choice" in
                 1|copy|c)
                     do_copy_with_retry "$RESULT_FILE"
                     ;;
                 2|recreate|r)
-                    echo -e "${YELLOW}[*] Recreate = hapus isi code-to-obfuscate.lua & buka nano baru${RESET}"
-                    echo '-- Tulis code Lua baru disini (code lama sudah dihapus)' > "$PROJECT_FILE"
-                    echo 'print("Hello Baru")' >> "$PROJECT_FILE"
-                    echo -e "${GREEN}[*] Membuka nano $PROJECT_FILE (isi sudah dihapus)${RESET}"
-                    sleep 0.8
+                    echo -e "${YELLOW}[*] clear $PROJECT_FILE and open new${RESET}"
+                    echo '-- new lua code here (old cleared)' > "$PROJECT_FILE"
+                    echo 'print("new code")' >> "$PROJECT_FILE"
                     nano "$PROJECT_FILE"
-                    echo -e "${YELLOW}[*] Lanjut obfuscate code baru? (y/n)${RESET}"
+                    echo -ne "${YELLOW}obfuscate new code? (y/n): ${RESET}"
                     read -r yn
                     if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
                         do_obfuscate
@@ -346,51 +405,49 @@ do_obfuscate() {
                     break
                     ;;
                 3|open|o)
-                    echo -e "${YELLOW}[*] Membuka file baru $RESULT_FILE biar ga numpuk${RESET}"
+                    echo -e "${YELLOW}[*] open $RESULT_FILE${RESET}"
                     if [ ! -f "$RESULT_FILE" ]; then
                         cp "$PROJECT_FILE" "$RESULT_FILE"
                     fi
                     nano "$RESULT_FILE"
-                    echo -e "${GREEN}[✓] $RESULT_FILE tersimpan${RESET}"
+                    echo -e "${GREEN}[ok] saved $RESULT_FILE${RESET}"
                     ;;
                 4|exit|e|q)
                     break
                     ;;
                 *)
-                    echo -e "${RED}Pilihan tidak valid${RESET}"
+                    echo -e "${RED}invalid option${RESET}"
                     ;;
             esac
         done
         rm -f "$tmp_out"
     else
-        echo -e "${RED}[x] Gagal validasi${RESET}"
+        echo -e "${RED}[fail] validation failed${RESET}"
     fi
 }
 
 handle_start() {
-    echo -e "${YELLOW}[*] START - Hapus isi code lama untuk code selanjutnya${RESET}"
-    # Hapus isi code yang dipake tadi
-    echo -e "${YELLOW}[*] Menghapus isi $PROJECT_FILE lama...${RESET}"
+    echo -e "${YELLOW}[*] start - clear old code for new code${RESET}"
     rm -f "$PROJECT_FILE"
-    echo '-- Tulis code Lua baru disini (old code sudah dihapus otomatis)' > "$PROJECT_FILE"
-    echo 'print("Hello World")' >> "$PROJECT_FILE"
-    echo -e "${GREEN}[✓] File lama dihapus, siap code baru${RESET}"
-    echo -e "${GREEN}[*] Membuka nano $PROJECT_FILE ...${RESET}"
-    sleep 0.8
+    echo '-- new lua code here (old auto cleared)' > "$PROJECT_FILE"
+    echo 'print("hello world")' >> "$PROJECT_FILE"
+    echo -e "${GREEN}[ok] old code cleared${RESET}"
+    echo -e "${GREEN}[*] open nano $PROJECT_FILE${RESET}"
+    sleep 0.5
     nano "$PROJECT_FILE"
     if [ ! -s "$PROJECT_FILE" ]; then
-        echo -e "${RED}[x] File kosong, batal${RESET}"
+        echo -e "${RED}[fail] empty file, cancel${RESET}"
         return
     fi
-    echo -e "${CYAN}--- Preview sebelum obfuscate (short) ---${RESET}"
+    echo -e "${CYAN}--- preview ---${RESET}"
     head -n 15 "$PROJECT_FILE"
-    echo -e "${CYAN}----------------------------------------${RESET}"
-    echo -ne "${YELLOW}Lanjut obfuscate jadi pendek? (y/n): ${RESET}"
+    echo -e "${CYAN}---------------${RESET}"
+    echo -ne "${YELLOW}obfuscate now? (y/n): ${RESET}"
     read -r yn
     if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
         do_obfuscate
     else
-        echo -e "${RED}Batal.${RESET}"
+        echo -e "${RED}cancel${RESET}"
     fi
 }
 
@@ -399,44 +456,49 @@ handle_setting() {
         init_settings
         clear
         show_banner
-        echo -e "${WHITE}=== SETTING OBFUSCATE SHORT ===${RESET}"
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-        echo -e "1. Oneline Mode      : ${YELLOW}$oneline${RESET} (on/off) - jadi 1 baris super pendek"
-        echo -e "2. Damage Level      : ${YELLOW}$damage${RESET} (1-5) - rusak di mata, pendek tetap jalan"
-        echo -e "3. Anti Bug         : ${YELLOW}$anti_bug${RESET} (on/off)"
-        echo -e "4. Kembali"
-        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-        echo -ne "${CYAN}Pilih (1-4) > ${RESET}"
+        echo -e "${WHITE}SETTINGS${RESET}"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -e "1. oneline    : ${YELLOW}$oneline${RESET} (on/off) - one line mode"
+        echo -e "2. damage    : ${YELLOW}$damage${RESET} (1-5) - how broken it looks"
+        echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET} (on/off) - test many times"
+        echo -e "4. short_byte: ${YELLOW}$short_byte${RESET} (on/off) - short vs long code"
+        echo -e "   on = short summarized, off = very long"
+        echo -e "5. back to menu"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -ne "${CYAN}select 1-5 > ${RESET}"
         read -r s
         case "$s" in
             1)
-                echo -ne "oneline (on/off) > "
+                echo -ne "oneline on/off > "
                 read -r val
                 if [[ "$val" == "on" || "$val" == "off" ]]; then
                     sed -i "s/^oneline=.*/oneline=$val/" "$SETTINGS_FILE"
-                    echo -e "${GREEN}Saved!${RESET}"
                 fi
-                sleep 1
                 ;;
             2)
-                echo -ne "damage (1-5) > "
+                echo -ne "damage 1-5 > "
                 read -r val
                 if [[ "$val" =~ ^[1-5]$ ]]; then
                     sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE"
-                    echo -e "${GREEN}Saved!${RESET}"
                 fi
-                sleep 1
                 ;;
             3)
-                echo -ne "anti_bug (on/off) > "
+                echo -ne "anti_bug on/off > "
                 read -r val
                 if [[ "$val" == "on" || "$val" == "off" ]]; then
                     sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE"
-                    echo -e "${GREEN}Saved!${RESET}"
                 fi
-                sleep 1
                 ;;
-            4|exit|q)
+            4)
+                echo -ne "short_byte on/off > "
+                read -r val
+                if [[ "$val" == "on" || "$val" == "off" ]]; then
+                    sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE"
+                    echo -e "${GREEN}saved: short_byte=$val${RESET}"
+                    sleep 1
+                fi
+                ;;
+            5|q|exit)
                 break
                 ;;
         esac
@@ -453,18 +515,18 @@ while true; do
     case "$cmd" in
         start|1|s)
             handle_start
-            echo -e "${YELLOW}Tekan enter...${RESET}"
+            echo -e "${YELLOW}press enter...${RESET}"
             read -r
             ;;
         setting|settings|2|set)
             handle_setting
             ;;
         exit|3|q|quit)
-            echo -e "${GREEN}Bye!${RESET}"
+            echo -e "${GREEN}bye!${RESET}"
             exit 0
             ;;
         *)
-            echo -e "${RED}Perintah tidak dikenal: $input${RESET}"
+            echo -e "${RED}unknown: $input (type: start / setting / exit)${RESET}"
             sleep 1
             ;;
     esac
