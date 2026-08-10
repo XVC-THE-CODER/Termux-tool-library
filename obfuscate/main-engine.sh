@@ -1,5 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Termux Lua Obfuscator v1.1
+# Termux Lua Obfuscator v5.0 - English Simple + Bugfix
+# Fix: copy bug, large file, auto install, short_byte
 
 PROJECT_FILE="./code-to-obfuscate.lua"
 RESULT_FILE="./code-obfuscate.lua"
@@ -22,7 +23,6 @@ init_settings() {
         echo "anti_bug=on" >> "$SETTINGS_FILE"
         echo "short_byte=on" >> "$SETTINGS_FILE"
     fi
-    # add short_byte if old config
     if ! grep -q "short_byte" "$SETTINGS_FILE"; then
         echo "short_byte=on" >> "$SETTINGS_FILE"
     fi
@@ -36,7 +36,7 @@ import sys, os, random, subprocess, tempfile, re
 
 def rand_name(damage):
     if damage >= 4:
-        parts = ["_", "__", "_0x", "_0X", "_A", "_B", "_H", "_E"]
+        parts = ["_", "__", "_0x", "_A", "_B", "_H", "_E"]
         base = random.choice(parts)
         suffix = ''.join(random.choices("0123456789ABCDEF", k=random.randint(3,6)))
         return base + suffix
@@ -83,20 +83,11 @@ def expr_for_bit(bit, var_names, damage):
     while v2 == v and len(var_names)>1:
         v2 = random.choice(var_names)
     if bit == '0':
-        templates = [
-            f"({v}-{v})",
-            f"(({v}*2)-({v}*2))",
-            f"(({v}+{v2})-({v}+{v2}))",
-            f"({v}*0)",
-        ]
+        templates = [f"({v}-{v})", f"(({v}*2)-({v}*2))", f"(({v}+{v2})-({v}+{v2}))", f"({v}*0)"]
         if damage >= 3:
             templates += [f"(({v}*{v2}+{v2}*{v})-({v}*{v2}*2))", f"(({v}//{v})-1)"]
     else:
-        templates = [
-            f"({v}//{v})",
-            f"(({v}*2)//({v}*2))",
-            f"(({v}+{v2})//({v}+{v2}))",
-        ]
+        templates = [f"({v}//{v})", f"(({v}*2)//({v}*2))", f"(({v}+{v2})//({v}+{v2}))"]
         if damage >= 3:
             templates += [f"(({v}*{v2})//({v}*{v2}))"]
     safe = [t for t in templates if "//0" not in t and "/0" not in t]
@@ -108,7 +99,6 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     if not original.strip():
         print("EMPTY")
         return False
-
     html_entity = ''.join(f"&#{ord(c)};" for c in original)
     hex_str = ''.join(f"{ord(ch):02x}" for ch in html_entity)
     binary_str = ''.join(f"{int(ch,16):04b}" for ch in hex_str)
@@ -117,24 +107,20 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     lua_vars = []
     for name in var_names:
         lua_vars.append(f"local {name} = {var_vals[name]}")
-
     if damage >= 4:
         for _ in range(damage):
             junk_name = rand_name(damage) + "_j"
             base = random.choice(var_names)
             lua_vars.append(f"local {junk_name} = {base} * {random.randint(1,5)}")
             lua_vars.append(f"if ({base}-{base}=={alg_const(1,var_names)}) then local {rand_name(damage)} = {alg_const(0,var_names)} end")
-
     lua_vars_code = "\n".join(lua_vars)
 
-    # SHORT BYTE MODE = ON -> short summarized code
     if short_byte == "on":
         e0 = alg_const(0, var_names)
         e1 = alg_const(1, var_names)
         e2 = alg_const(2, var_names)
         e4 = alg_const(4, var_names)
         e16 = alg_const(16, var_names)
-
         bin_var = rand_name(damage) + "_BIN"
         hex_var = rand_name(damage) + "_HEX"
         ent_var = rand_name(damage) + "_ENT"
@@ -145,8 +131,8 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         i_var = rand_name(damage) + "_i"
         j_var = rand_name(damage) + "_j"
         h_var = rand_name(damage) + "_h"
-
-        lua_template = f"""-- OBFUSCATED BY TOOL
+        lua_template = f"""-- SHORT BYTE OBFUSCATED
+-- Layers: HTML Entity -> Hex -> Binary -> Algebra
 {lua_vars_code}
 local {h0_var} = "{hex_str}"
 local {bin_var} = ""
@@ -178,10 +164,9 @@ local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumb
 local _load=loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
-print("[obfuscate] done | short_byte=on")
+print("[obfuscate] done | short=on")
 """
     else:
-        # LONG BYTE MODE = OFF -> very long per-bit algebra (original long version)
         chunk_size = 50 if damage <=3 else 30
         chunks = []
         for i in range(0, len(binary_str), chunk_size):
@@ -190,7 +175,6 @@ print("[obfuscate] done | short_byte=on")
             chunk_code = "..".join(exprs)
             chunks.append(f"({chunk_code})")
         bin_assembly = "..".join(chunks) if len(chunks)>1 else chunks[0]
-
         bin_var = rand_name(damage) + "_BIN"
         hex_var = rand_name(damage) + "_HEX"
         ent_var = rand_name(damage) + "_ENT"
@@ -200,8 +184,8 @@ print("[obfuscate] done | short_byte=on")
         h_var = rand_name(damage) + "_h"
         i_var = rand_name(damage) + "_i"
         j_var = rand_name(damage) + "_j"
-
-        lua_template = f"""-- OBFUSCATED BY TOOL
+        lua_template = f"""-- LONG BYTE OBFUSCATED
+-- Layers: HTML Entity -> Hex -> Binary -> Algebra
 {lua_vars_code}
 local {bin_var} = {bin_assembly}
 local {hex_var} = ""
@@ -222,16 +206,15 @@ local {code_var} = {ent_var}:gsub("&#(%d+);", function(n) return string.char(ton
 local _load = loadstring or load
 local _ok, _fn = pcall(_load, {code_var})
 if _ok and _fn then pcall(_fn) end
-print("[obfuscate] done | short_byte=off")
+print("[obfuscate] done | short=off")
 """
-
     final_code = lua_template
     if oneline == "on":
         final_code = final_code.replace("\n", " ")
+        import re
         final_code = re.sub(r'\s+', ' ', final_code)
-
     if anti_bug == "on":
-        for attempt in range(5):
+        for _ in range(5):
             with tempfile.NamedTemporaryFile(mode='w', suffix='.lua', delete=False) as tf:
                 tf.write(final_code)
                 tf_path = tf.name
@@ -241,7 +224,7 @@ print("[obfuscate] done | short_byte=off")
                 if result.returncode == 0:
                     break
                 else:
-                    if attempt == 4:
+                    if _ == 4:
                         print("SYNTAX_FAIL:"+result.stderr)
                         return False
             except FileNotFoundError:
@@ -253,17 +236,15 @@ print("[obfuscate] done | short_byte=off")
                 except: pass
                 print(f"TEST_ERROR:{e}")
                 return False
-
     with open(output_path, 'w', encoding='utf-8') as out:
         out.write(final_code)
     return True
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("usage: engine.py <input> <output> <oneline> <damage> <anti_bug> <short_byte>")
+        print("usage: <input> <output> <oneline> <damage> <anti_bug> <short_byte>")
         sys.exit(1)
-    inp = sys.argv[1]
-    outp = sys.argv[2]
+    inp, outp = sys.argv[1], sys.argv[2]
     oneline = sys.argv[3] if len(sys.argv)>3 else "off"
     damage = int(sys.argv[4]) if len(sys.argv)>4 else 3
     anti_bug = sys.argv[5] if len(sys.argv)>5 else "on"
@@ -278,23 +259,23 @@ PYEOF
 show_banner() {
     clear
     echo -e "${CYAN}"
-    echo "██████╗ ███████╗███████╗ ██████╗████████╗"
-    echo "██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝"
-    echo "██████╔╝█████╗  ███████╗██║        ██║   "
-    echo "██╔══██╗██╔══╝  ╚════██║██║        ██║   "
-    echo "██████╔╝██║     ███████║╚██████╗   ██║   "
-    echo "╚═════╝ ╚═╝     ╚══════╝ ╚═════╝   ╚═╝   "
+    echo "   ___  ____  ______ _   _ ____   ____    _  _____ _____ "
+    echo "  / _ \| __ )|  ___/| | | / ___| / ___|  / \ |_   _| ____|"
+    echo " | |  | |  _ \| |_  | | | \___ \| |     / _ \  | | |  _|  "
+    echo " | |_| | |_) |  _|  | |_| |___) | |___ / ___ \ | | | |___ "
+    echo "  \___/|____/|_|     \___/|____/ \____/_/   \_\|_| |_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE}  Tool Lua Obfuscator v1.1${RESET}"
+    echo -e "${WHITE}  Lua Obfuscator v5.0 - bugfix${RESET}"
+    echo -e "${YELLOW}  html entity > hex > binary > algebra${RESET}"
     echo ""
 }
 
 show_menu() {
     echo -e "${GREEN}----------------------------------------${RESET}"
-    echo -e "  ${WHITE}MENU${RESET}"
-    echo -e "  ${YELLOW}start${RESET}   - create and obfuscate lua"
-    echo -e "  ${YELLOW}setting${RESET} - open settings"
-    echo -e "  ${YELLOW}exit${RESET}    - exit tool"
+    echo -e "  MENU"
+    echo -e "  ${YELLOW}start${RESET}   - create and obfuscate"
+    echo -e "  ${YELLOW}setting${RESET} - settings"
+    echo -e "  ${YELLOW}exit${RESET}    - exit"
     echo -e "${GREEN}----------------------------------------${RESET}"
     echo ""
     echo -ne "${CYAN}obfuscate > ${RESET}"
@@ -302,35 +283,65 @@ show_menu() {
 
 do_copy_with_retry() {
     local file="$1"
-    local success=0
+    if [ ! -f "$file" ]; then
+        echo -e "${RED}[fail] file not found: $file${RESET}"
+        return 1
+    fi
+    local size=$(wc -c < "$file")
+    echo -e "${CYAN}  file size: $size bytes${RESET}"
+
     if ! command -v termux-clipboard-set >/dev/null 2>&1; then
-        echo -e "${YELLOW}[!] termux-api not installed${RESET}"
-        echo -e "${CYAN}[*] auto download termux-api...${RESET}"
-        pkg update -y -o Dpkg::Options::="--force-confnew" 2>/dev/null
-        pkg install termux-api -y
+        echo -e "${YELLOW}[!] termux-api not found${RESET}"
+        echo -e "${YELLOW}[*] auto install...${RESET}"
+        pkg install termux-api -y >/dev/null 2>&1
         if command -v termux-clipboard-set >/dev/null 2>&1; then
-            echo -e "${GREEN}[ok] termux-api installed${RESET}"
+            echo -e "${GREEN}[ok] installed${RESET}"
         else
-            echo -e "${RED}[fail] install failed, try: pkg install termux-api${RESET}"
-            echo -e "${YELLOW}[!] also need Termux:API app from F-Droid${RESET}"
-            sleep 2
+            echo -e "${RED}[fail] auto install failed${RESET}"
+            echo -e "${YELLOW}run: pkg install termux-api${RESET}"
+            echo -e "${YELLOW}also need Termux:API app from F-Droid${RESET}"
+            cat "$file"
+            return 1
         fi
     fi
+
+    if [ "$size" -gt 10000 ]; then
+        echo -e "${YELLOW}[!] large file ($size bytes), clipboard may fail${RESET}"
+        echo -e "${YELLOW}[!] use short_byte=on to make short${RESET}"
+    fi
+
     echo -e "${YELLOW}[*] copy to clipboard, 10 tries...${RESET}"
+    local success=0
     for i in {1..10}; do
-        if command -v termux-clipboard-set >/dev/null 2>&1; then
-            if termux-clipboard-set < "$file"; then
-                echo -e "${GREEN}[ok] copy success try $i${RESET}"
+        if termux-clipboard-set < "$file" 2>/dev/null; then
+            echo -e "${GREEN}[ok] copy success try $i${RESET}"
+            success=1
+            break
+        fi
+        if cat "$file" | termux-clipboard-set 2>/dev/null; then
+            echo -e "${GREEN}[ok] copy success try $i method2${RESET}"
+            success=1
+            break
+        fi
+        if [ "$size" -lt 4000 ]; then
+            if termux-clipboard-set "$(cat "$file")" 2>/dev/null; then
+                echo -e "${GREEN}[ok] copy success try $i method3${RESET}"
                 success=1
                 break
             fi
-        else
-            echo -e "${RED}[!] clipboard tool not found${RESET}"
-            break
         fi
         echo -e "${YELLOW}[.] try $i failed, retry...${RESET}"
-        sleep 0.3
+        sleep 0.4
     done
+
+    if [ $success -eq 0 ]; then
+        echo -e "${RED}[fail] copy failed after 10 tries${RESET}"
+        echo -e "${YELLOW}reasons: API app not installed or file too large${RESET}"
+        echo -e "${CYAN}file saved at $file${RESET}"
+        termux-toast "Copy failed" 2>/dev/null
+    else
+        termux-toast "Copied!" 2>/dev/null
+    fi
 }
 
 do_obfuscate() {
@@ -340,12 +351,11 @@ do_obfuscate() {
     fi
     init_settings
     echo -e "${CYAN}  settings: oneline=$oneline damage=$damage anti_bug=$anti_bug short_byte=$short_byte${RESET}"
-    echo -e "${YELLOW}[*] backup original...${RESET}"
-    cp "$PROJECT_FILE" "$BACKUP_FILE"
+    cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
     if [ "$short_byte" = "on" ]; then
-        echo -e "${YELLOW}[*] mode: short_byte=on (short code)${RESET}"
+        echo -e "${YELLOW}[*] mode: short_byte=on (short)${RESET}"
     else
-        echo -e "${YELLOW}[*] mode: short_byte=off (long code)${RESET}"
+        echo -e "${YELLOW}[*] mode: short_byte=off (long)${RESET}"
     fi
     echo -e "${YELLOW}[*] obfuscate: html entity > hex > binary > algebra${RESET}"
     python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte"
@@ -359,10 +369,10 @@ do_obfuscate() {
     for t in {1..5}; do
         if command -v luac >/dev/null 2>&1; then
             if luac -p "$tmp_out" >/dev/null 2>&1; then
-                echo -e "${GREEN}  [ok] test $t: syntax ok${RESET}"
+                echo -e "${GREEN}  [ok] test $t: ok${RESET}"
                 test_ok=1
             else
-                echo -e "${RED}  [fail] test $t: syntax error, regen...${RESET}"
+                echo -e "${RED}  [fail] test $t: regen${RESET}"
                 python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte"
             fi
         else
@@ -378,7 +388,7 @@ do_obfuscate() {
         echo -e "${GREEN}----------------------------------------${RESET}"
         echo -e "${GREEN}[ok] obfuscate success!${RESET}"
         echo -e "${WHITE}input : $PROJECT_FILE${RESET}"
-        echo -e "${WHITE}output: $RESULT_FILE (new file)${RESET}"
+        echo -e "${WHITE}output: $RESULT_FILE${RESET}"
         wc -c "$RESULT_FILE" | awk '{print "size  : " $1 " bytes"}'
         echo -e "${GREEN}----------------------------------------${RESET}"
         while true; do
@@ -391,11 +401,11 @@ do_obfuscate() {
                     do_copy_with_retry "$RESULT_FILE"
                     ;;
                 2|recreate|r)
-                    echo -e "${YELLOW}[*] clear $PROJECT_FILE and open new${RESET}"
+                    echo -e "${YELLOW}[*] clear $PROJECT_FILE for new code${RESET}"
                     echo '-- new lua code here (old cleared)' > "$PROJECT_FILE"
                     echo 'print("new code")' >> "$PROJECT_FILE"
                     nano "$PROJECT_FILE"
-                    echo -ne "${YELLOW}obfuscate new code? (y/n): ${RESET}"
+                    echo -ne "${YELLOW}obfuscate new? (y/n): ${RESET}"
                     read -r yn
                     if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
                         do_obfuscate
@@ -403,10 +413,7 @@ do_obfuscate() {
                     break
                     ;;
                 3|open|o)
-                    echo -e "${YELLOW}[*] open $RESULT_FILE${RESET}"
-                    if [ ! -f "$RESULT_FILE" ]; then
-                        cp "$PROJECT_FILE" "$RESULT_FILE"
-                    fi
+                    echo -e "${YELLOW}[*] open $RESULT_FILE (new file, no pile up)${RESET}"
                     nano "$RESULT_FILE"
                     echo -e "${GREEN}[ok] saved $RESULT_FILE${RESET}"
                     ;;
@@ -414,7 +421,7 @@ do_obfuscate() {
                     break
                     ;;
                 *)
-                    echo -e "${RED}invalid option${RESET}"
+                    echo -e "${RED}invalid${RESET}"
                     ;;
             esac
         done
@@ -425,16 +432,15 @@ do_obfuscate() {
 }
 
 handle_start() {
-    echo -e "${YELLOW}[*] start - clear old code for new code${RESET}"
+    echo -e "${YELLOW}[*] start - clear old code${RESET}"
     rm -f "$PROJECT_FILE"
     echo '-- new lua code here (old auto cleared)' > "$PROJECT_FILE"
     echo 'print("hello world")' >> "$PROJECT_FILE"
-    echo -e "${GREEN}[ok] old code cleared${RESET}"
-    echo -e "${GREEN}[*] open nano $PROJECT_FILE${RESET}"
-    sleep 0.5
+    echo -e "${GREEN}[ok] old cleared${RESET}"
+    sleep 0.3
     nano "$PROJECT_FILE"
     if [ ! -s "$PROJECT_FILE" ]; then
-        echo -e "${RED}[fail] empty file, cancel${RESET}"
+        echo -e "${RED}[fail] empty${RESET}"
         return
     fi
     echo -e "${CYAN}--- preview ---${RESET}"
@@ -444,8 +450,6 @@ handle_start() {
     read -r yn
     if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
         do_obfuscate
-    else
-        echo -e "${RED}cancel${RESET}"
     fi
 }
 
@@ -456,12 +460,11 @@ handle_setting() {
         show_banner
         echo -e "${WHITE}SETTINGS${RESET}"
         echo -e "${GREEN}----------------------------------------${RESET}"
-        echo -e "1. oneline    : ${YELLOW}$oneline${RESET} (on/off) - one line mode"
-        echo -e "2. damage    : ${YELLOW}$damage${RESET} (1-5) - how broken it looks"
-        echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET} (on/off) - test many times"
-        echo -e "4. short_byte: ${YELLOW}$short_byte${RESET} (on/off) - short vs long code"
-        echo -e "   on = short summarized, off = very long"
-        echo -e "5. back to menu"
+        echo -e "1. oneline    : ${YELLOW}$oneline${RESET} (on/off)"
+        echo -e "2. damage    : ${YELLOW}$damage${RESET} (1-5)"
+        echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET} (on/off)"
+        echo -e "4. short_byte: ${YELLOW}$short_byte${RESET} (on/off) short vs long"
+        echo -e "5. back"
         echo -e "${GREEN}----------------------------------------${RESET}"
         echo -ne "${CYAN}select 1-5 > ${RESET}"
         read -r s
@@ -492,8 +495,6 @@ handle_setting() {
                 read -r val
                 if [[ "$val" == "on" || "$val" == "off" ]]; then
                     sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE"
-                    echo -e "${GREEN}saved: short_byte=$val${RESET}"
-                    sleep 1
                 fi
                 ;;
             5|q|exit)
@@ -524,7 +525,7 @@ while true; do
             exit 0
             ;;
         *)
-            echo -e "${RED}unknown: $input (type: start / setting / exit)${RESET}"
+            echo -e "${RED}unknown: $input${RESET}"
             sleep 1
             ;;
     esac
