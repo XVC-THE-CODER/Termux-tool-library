@@ -2,12 +2,10 @@
 R='\033[1;31m';G='\033[1;32m';Y='\033[1;33m';B='\033[1;34m';C='\033[1;36m';W='\033[1;37m';NC='\033[0m'
 LANG_FILE="$HOME/.as_lang"
 SELECTED=""
-ROBLOX_PLAY_URL="https://www.roblox.com/games/"
-ROBLOX_PLAY_DEEP="roblox://placeId="
-ROBLOX_PLAY_DEEP2="roblox://experiences/start?placeId="
 ROBLOX_PLAYER_URL="https://www.roblox.com/users/"
 ROBLOX_PLAYER_DEEP="roblox://users/"
 norm(){ echo "$1" | tr '[:upper:]' '[:lower:]' | xargs; }
+gen_uuid(){ cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "cfed5fc6-80be-4d6f-ac0a-d95126cf2b39"; }
 choose_lang(){
 clear
 echo -e "${C}================================${NC}"
@@ -43,18 +41,18 @@ echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - cek update terbaru"
 echo -e "${G}as install <game>${NC} - nama game di Play Store atau AppStore"
 echo -e "${G}as anti lag${NC} - optimasi & boost performa"
-echo -e "${G}as roblox${NC} - masuk ke Roblox lobby"
 echo -e "${G}exit${NC} - keluar dari tool ini"
 echo -e "${W}------------------------------${NC}"
+echo -e "${Y}Tips: ketik roblox untuk masuk Roblox lobby${NC}"
 else
 echo -e "${C}command assistant${NC}"
 echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - check latest update"
 echo -e "${G}as install <game>${NC} - game name on Play Store or AppStore"
 echo -e "${G}as anti lag${NC} - optimization & performance boost"
-echo -e "${G}as roblox${NC} - enter Roblox lobby"
 echo -e "${G}exit${NC} - exit from this tool"
 echo -e "${W}------------------------------${NC}"
+echo -e "${Y}Tip: type roblox to enter Roblox lobby${NC}"
 fi
 }
 roblox_lobby(){
@@ -81,19 +79,18 @@ echo ""
 read -p "roblox> " rcmd
 rfull=$(norm "$rcmd")
 rid=$(echo "$rcmd" | awk '{print $3}')
-rarg=$(echo "$rcmd" | cut -d' ' -f3-)
 case "$rfull" in
 rbx\ playgame* )
 if [ -z "$rid" ]; then
-if [ "$SELECTED" = "id" ]; then echo -e "${Y}Contoh: rbx playgame 606849621${NC}"; else echo -e "${Y}Example: rbx playgame 606849621${NC}"; fi
+if [ "$SELECTED" = "id" ]; then echo -e "${Y}Contoh: rbx playgame 123974602339071${NC}"; else echo -e "${Y}Example: rbx playgame 123974602339071${NC}"; fi
 else
-if [ "$SELECTED" = "id" ]; then echo -e "${G}Join map ID: $rid${NC}"; else echo -e "${G}Joining map ID: $rid${NC}"; fi
-termux-open-url "${ROBLOX_PLAY_URL}${rid}" >/dev/null 2>&1
-am start -a android.intent.action.VIEW -d "${ROBLOX_PLAY_DEEP}${rid}" >/dev/null 2>&1
-am start -a android.intent.action.VIEW -d "${ROBLOX_PLAY_DEEP2}${rid}" >/dev/null 2>&1
-if [ $? -ne 0 ]; then
-am start -a android.intent.action.VIEW -d "${ROBLOX_PLAY_URL}${rid}" >/dev/null 2>&1
-fi
+uuid=$(gen_uuid)
+link="https://ro.blox.com/Ebh5?is_retargeting=false&pid=experiencestart_mobileweb&af_dp=https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${rid}%26joinAttemptId%3D${uuid}&af_web_dp=https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${rid}%26joinAttemptId%3D${uuid}&deep_link_value=https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${rid}%26joinAttemptId%3D${uuid}"
+if [ "$SELECTED" = "id" ]; then echo -e "${G}Join map ID: $rid${NC}"; echo -e "${W}$link${NC}"; else echo -e "${G}Joining map ID: $rid${NC}"; echo -e "${W}$link${NC}"; fi
+termux-open-url "$link" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "roblox://placeId=$rid" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "roblox://experiences/start?placeId=$rid" >/dev/null 2>&1
 fi
 ;;
 rbx\ playersearch* )
@@ -396,7 +393,7 @@ show_cmd
 as\ install* )
 do_install "$game_arg"
 ;;
-"as roblox"|"roblox"|"rbx")
+"roblox"|"rbx")
 roblox_lobby
 ;;
 "as help"|"help"|"as command")
