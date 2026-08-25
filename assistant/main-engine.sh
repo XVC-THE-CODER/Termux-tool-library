@@ -256,6 +256,7 @@ roblox_lobby() {
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
+        echo -e "${W}command${NC}"
         echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
         echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
         echo -e "${G}save <name> <id> / rbx save${NC} - simpan map"
@@ -395,7 +396,6 @@ run_fileman() {
         echo -e "${C}File Manager - $CUR_DIR${NC}"
         echo -e "${W}------------------------------${NC}"
 
-        # Hidden file tetap tersembunyi - tidak pakai -A
         mapfile -t ENTRIES < <(ls "$CUR_DIR" 2>/dev/null)
 
         if [ ${#ENTRIES[@]} -eq 0 ]; then
@@ -452,7 +452,7 @@ run_fileman() {
                 if [ -d "$tpath" ]; then
                     CUR_DIR="$tpath"
                 else
-                    # File dipilih - tampilkan pilihan 1. open 2. delete 3. dupe 0. cancel
+                    # File dipilih - tampilkan pilihan 1. open 2. delete 3. dupe 4. move 0. cancel
                     while true; do
                         clear
                         echo -e "${C}File: $sel${NC}"
@@ -462,11 +462,13 @@ run_fileman() {
                             echo -e "${W}1. buka${NC}"
                             echo -e "${W}2. hapus${NC}"
                             echo -e "${W}3. duplikat${NC}"
+                            echo -e "${W}4. pindah (move)${NC}"
                             echo -e "${W}0. batal${NC}"
                         else
                             echo -e "${W}1. open${NC}"
                             echo -e "${W}2. delete${NC}"
                             echo -e "${W}3. dupe${NC}"
+                            echo -e "${W}4. move${NC}"
                             echo -e "${W}0. cancel${NC}"
                         fi
                         echo -e "${W}------------------------------${NC}"
@@ -514,6 +516,86 @@ run_fileman() {
                                 sleep 1
                                 break
                                 ;;
+                            4)
+                                # MODE MOVE - pindah file ke folder lain
+                                ORIG_FILE="$tpath"
+                                DEST_DIR="$CUR_DIR"
+                                while true; do
+                                    clear
+                                    if [ "$SELECTED" = "id" ]; then
+                                        echo -e "${C}Pindah File: $(basename "$ORIG_FILE")${NC}"
+                                        echo -e "${W}Asal: $ORIG_FILE${NC}"
+                                        echo -e "${W}Tujuan sekarang: $DEST_DIR${NC}"
+                                        echo -e "${W}------------------------------${NC}"
+                                    else
+                                        echo -e "${C}Move File: $(basename "$ORIG_FILE")${NC}"
+                                        echo -e "${W}From: $ORIG_FILE${NC}"
+                                        echo -e "${W}Current dest: $DEST_DIR${NC}"
+                                        echo -e "${W}------------------------------${NC}"
+                                    fi
+
+                                    mapfile -t MOVE_ENTRIES < <(ls "$DEST_DIR" 2>/dev/null)
+                                    if [ ${#MOVE_ENTRIES[@]} -eq 0 ]; then
+                                        echo -e "${Y}Folder kosong${NC}"
+                                    else
+                                        i=1
+                                        for me in "${MOVE_ENTRIES[@]}"; do
+                                            if [ -d "$DEST_DIR/$me" ]; then
+                                                echo -e "${W}${i}. ${B}[DIR] ${me}${NC}"
+                                            else
+                                                echo -e "${W}${i}. ${W}${me}${NC}"
+                                            fi
+                                            i=$((i+1))
+                                        done
+                                    fi
+
+                                    echo -e "${W}------------------------------${NC}"
+                                    if [ "$SELECTED" = "id" ]; then
+                                        echo -e "${Y}Ketik angka untuk masuk folder${NC}"
+                                        echo -e "${Y}Ketik 00 untuk mundur ke folder sebelumnya${NC}"
+                                        echo -e "${Y}Ketik 0 untuk pindahkan file ke folder ini${NC}"
+                                    else
+                                        echo -e "${Y}Type number to enter folder${NC}"
+                                        echo -e "${Y}Type 00 to go back${NC}"
+                                        echo -e "${Y}Type 0 to move file to this folder${NC}"
+                                    fi
+                                    echo ""
+                                    read -p "move> " minp
+                                    minp_trim=$(echo "$minp" | xargs)
+
+                                    if [ "$minp_trim" = "0" ]; then
+                                        mv "$ORIG_FILE" "$DEST_DIR/"
+                                        if [ "$SELECTED" = "id" ]; then
+                                            echo -e "${G}File dipindahkan ke $DEST_DIR${NC}"
+                                        else
+                                            echo -e "${G}File moved to $DEST_DIR${NC}"
+                                        fi
+                                        sleep 1
+                                        break
+                                    fi
+
+                                    if [ "$minp_trim" = "00" ]; then
+                                        if [ "$DEST_DIR" = "/sdcard" ] || [ "$DEST_DIR" = "/storage/emulated/0" ] || [ "$DEST_DIR" = "$HOME" ] || [ "$DEST_DIR" = "/" ]; then
+                                            continue
+                                        else
+                                            DEST_DIR=$(dirname "$DEST_DIR")
+                                            continue
+                                        fi
+                                    fi
+
+                                    if echo "$minp_trim" | grep -Eq '^[0-9]+$'; then
+                                        mnum=$minp_trim
+                                        if [ "$mnum" -ge 1 ] && [ "$mnum" -le ${#MOVE_ENTRIES[@]} ]; then
+                                            msel="${MOVE_ENTRIES[$((mnum-1))]}"
+                                            mpath="$DEST_DIR/$msel"
+                                            if [ -d "$mpath" ]; then
+                                                DEST_DIR="$mpath"
+                                            fi
+                                        fi
+                                    fi
+                                done
+                                break
+                                ;;
                             0)
                                 break
                                 ;;
@@ -531,7 +613,11 @@ run_fileman() {
 
 run_antilag() {
     clear
-    echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
+    else
+        echo -e "${C}Running latest boost-performance tool...${NC}"
+    fi
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
     pkg update -y
