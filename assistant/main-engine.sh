@@ -40,20 +40,20 @@ if [ "$SELECTED" = "id" ]; then
 echo -e "${C}command assistant${NC}"
 echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - update via github & restart"
-echo -e "${G}as install <game>${NC} - nama game (support spasi)"
+echo -e "${G}as roblox${NC} - masuk ke Roblox lobby"
 echo -e "${G}as anti lag${NC} - optimasi & boost performa"
+echo -e "${G}as lang <id/en/indonesia/english>${NC} - ganti bahasa"
 echo -e "${G}exit${NC} - keluar dari tool ini"
 echo -e "${W}------------------------------${NC}"
-echo -e "${Y}Tips: ketik roblox untuk masuk Roblox lobby${NC}"
 else
 echo -e "${C}command assistant${NC}"
 echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - update via github & restart"
-echo -e "${G}as install <game>${NC} - game name (supports space)"
+echo -e "${G}as roblox${NC} - enter Roblox lobby"
 echo -e "${G}as anti lag${NC} - optimization & performance boost"
+echo -e "${G}as lang <id/en/indonesia/english>${NC} - change language"
 echo -e "${G}exit${NC} - exit from this tool"
 echo -e "${W}------------------------------${NC}"
-echo -e "${Y}Tip: type roblox to enter Roblox lobby${NC}"
 fi
 }
 roblox_join_by_id(){
@@ -66,7 +66,6 @@ echo -e "${W}$link${NC}"
 termux-open-url "$link" >/dev/null 2>&1
 am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
 am start -a android.intent.action.VIEW -d "roblox://placeId=$id" >/dev/null 2>&1
-am start -a android.intent.action.VIEW -d "roblox://experiences/start?placeId=$id" >/dev/null 2>&1
 }
 save_rbx(){
 name="$1"
@@ -112,8 +111,7 @@ echo -e "${W}command${NC}"
 echo -e "${G}rbx playgame <id map>${NC} - langsung masuk ke map"
 echo -e "${G}rbx playersearch <id player>${NC} - cari player"
 echo -e "${G}rbx save <name> <id map>${NC} - simpan map"
-echo -e "${G}rbx list${NC} - lihat list save"
-echo -e "${G}rbx listjoin [name/angka]${NC} - join dari save"
+echo -e "${G}rbx listjoin [name/angka]${NC} - join dari save (pakai nomor)"
 echo -e "${G}exit${NC} - keluar dari Roblox lobby"
 echo -e "${W}------------------------------${NC}"
 else
@@ -123,8 +121,7 @@ echo -e "${W}command${NC}"
 echo -e "${G}rbx playgame <id map>${NC} - directly join map"
 echo -e "${G}rbx playersearch <id player>${NC} - search player"
 echo -e "${G}rbx save <name> <id map>${NC} - save map"
-echo -e "${G}rbx list${NC} - view saved list"
-echo -e "${G}rbx listjoin [name/number]${NC} - join from save"
+echo -e "${G}rbx listjoin [name/number]${NC} - join from save (use number)"
 echo -e "${G}exit${NC} - exit from Roblox lobby"
 echo -e "${W}------------------------------${NC}"
 fi
@@ -133,7 +130,6 @@ echo ""
 read -p "roblox> " rcmd
 [ -z "$rcmd" ] && continue
 rfull=$(norm "$rcmd")
-raw_args=$(echo "$rcmd" | cut -d' ' -f3-)
 case "$rfull" in
 rbx\ playgame* )
 rid=$(echo "$rcmd" | awk '{print $3}')
@@ -162,9 +158,6 @@ if [ "$SELECTED" = "id" ]; then echo -e "${Y}Contoh: rbx save lobbyku 1239746023
 else
 save_rbx "$sname" "$sid"
 fi
-;;
-rbx\ list )
-list_rbx
 ;;
 rbx\ listjoin* )
 arg=$(echo "$rcmd" | cut -d' ' -f3- | xargs)
@@ -214,38 +207,6 @@ if [ "$SELECTED" = "id" ]; then echo -e "${Y}Command tidak dikenal di Roblox lob
 ;;
 esac
 done
-}
-do_install(){
-game_name="$1"
-if [ -z "$game_name" ] || [ "$game_name" = " " ]; then
-if [ "$SELECTED" = "id" ]; then
-read -p "Masukkan nama game: " game_name
-else
-read -p "Enter game name: " game_name
-fi
-fi
-[ -z "$game_name" ] && return
-low=$(norm "$game_name")
-case "$low" in
-*roblox*)
-roblox_lobby
-return
-;;
-esac
-pkg=$(pm list packages 2>/dev/null | cut -d: -f2 | grep -i "$(echo "$game_name" | awk '{print $1}')" | head -n 1)
-if [ -n "$pkg" ]; then
-if [ "$SELECTED" = "id" ]; then echo -e "${G}Game terdeteksi: $pkg${NC} - membuka game..."; else echo -e "${G}Game detected: $pkg${NC} - launching..."; fi
-monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 &
-sleep 0.5
-am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$pkg" >/dev/null 2>&1
-else
-if [ "$SELECTED" = "id" ]; then echo -e "${Y}Game belum terinstall, buka Play Store: $game_name${NC}"; else echo -e "${Y}Game not installed, opening store: $game_name${NC}"; fi
-q=$(echo "$game_name" | sed 's/ /%20/g')
-termux-open-url "https://play.google.com/store/search?q=$q&c=apps" >/dev/null 2>&1
-if [ $? -ne 0 ]; then
-am start -a android.intent.action.VIEW -d "market://search?q=$q" >/dev/null 2>&1 || am start -a android.intent.action.VIEW -d "https://play.google.com/store/search?q=$q&c=apps" >/dev/null 2>&1 || am start -a android.intent.action.VIEW -d "https://apps.apple.com/search?term=$q" >/dev/null 2>&1
-fi
-fi
 }
 run_antilag(){
 _b=$(getprop $(echo cm8ucHJvZHVjdC5icmFuZA== | base64 -d) 2>/dev/null)
@@ -498,10 +459,13 @@ echo ""
 read -p "assistant> " cmd
 [ -z "$cmd" ] && continue
 full=$(norm "$cmd")
-game_arg=$(echo "$cmd" | cut -d' ' -f3- | sed 's/^ *//;s/ *$//')
+lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
 case "$full" in
 "as update")
 do_update
+;;
+"as roblox"|"roblox"|"rbx")
+roblox_lobby
 ;;
 "as anti lag"|"as antilag"|"as anti-lag")
 clear
@@ -509,20 +473,32 @@ run_antilag
 clear
 show_cmd
 ;;
-as\ install* )
-if [ -z "$game_arg" ]; then
-if [ "$SELECTED" = "id" ]; then
-echo -e "${Y}Nama game kosong${NC}"
-read -p "Masukkan nama game: " game_arg
-else
-echo -e "${Y}Game name empty${NC}"
-read -p "Enter game name: " game_arg
+as\ lang* )
+if [ -z "$lang_arg" ]; then
+if [ "$SELECTED" = "id" ]; then echo -e "${Y}Contoh: as lang id / as lang indonesia / as lang en${NC}"; else echo -e "${Y}Example: as lang id / as lang indonesia / as lang en${NC}"; fi
+continue
 fi
-fi
-do_install "$game_arg"
+larg=$(norm "$lang_arg")
+case "$larg" in
+1|2)
+if [ "$SELECTED" = "id" ]; then echo -e "${R}Angka tidak bisa, pakai id/en atau nama bahasa saja${NC}"; else echo -e "${R}Numbers not allowed, use id/en or language name only${NC}"; fi
 ;;
-"roblox"|"rbx")
-roblox_lobby
+id|indonesia|indo)
+SELECTED="id"
+echo "$SELECTED" > "$LANG_FILE"
+show_sel
+show_cmd
+;;
+en|english|inggris|eng)
+SELECTED="en"
+echo "$SELECTED" > "$LANG_FILE"
+show_sel
+show_cmd
+;;
+*)
+if [ "$SELECTED" = "id" ]; then echo -e "${R}Bahasa tidak dikenal. Pakai: id, en, indonesia, english${NC}"; else echo -e "${R}Unknown language. Use: id, en, indonesia, english${NC}"; fi
+;;
+esac
 ;;
 "as help"|"help"|"as command")
 clear
