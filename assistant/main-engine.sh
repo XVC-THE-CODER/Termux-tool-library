@@ -41,7 +41,7 @@ echo -e "${C}command assistant${NC}"
 echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - update via github & restart"
 echo -e "${G}as roblox${NC} - masuk ke Roblox lobby"
-echo -e "${G}as anti lag${NC} - optimasi & boost performa"
+echo -e "${G}as antilag${NC} - optimasi & boost performa"
 echo -e "${G}as lang <id/en/indonesia/english>${NC} - ganti bahasa"
 echo -e "${G}exit${NC} - keluar dari tool ini"
 echo -e "${W}------------------------------${NC}"
@@ -50,7 +50,7 @@ echo -e "${C}command assistant${NC}"
 echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - update via github & restart"
 echo -e "${G}as roblox${NC} - enter Roblox lobby"
-echo -e "${G}as anti lag${NC} - optimization & performance boost"
+echo -e "${G}as antilag${NC} - optimization & performance boost"
 echo -e "${G}as lang <id/en/indonesia/english>${NC} - change language"
 echo -e "${G}exit${NC} - exit from this tool"
 echo -e "${W}------------------------------${NC}"
@@ -417,8 +417,33 @@ if [ "$COOLER_ENABLED" -eq 1 ]; then notify_start "$COOLER_INFO"; sleep 0.2; not
 if [ $((CYCLE % 5)) -eq 0 ]; then notify_start "cache clean"; stealth_cache_clean; notify_clear; fi
 echo -e "${G}[$(date +%T)] ALL IN ONE: $BOOST_POWER | $COOLER_INFO${NC}"
 echo -e "${W}>> $TXT_TEKAN <<${NC}"
-if read -t 2; then clear; echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"; safe_set global private_dns_mode opportunistic; safe_set system pointer_speed 3; safe_set secure long_press_timeout 400; safe_set system min_refresh_rate 60; if command -v termux-notification-remove >/dev/null 2>&1; then termux-notification-remove tool_up >/dev/null 2>&1; fi; break; fi
+if read -t 2; then
+clear
+echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"
+safe_set global private_dns_mode opportunistic
+safe_set system pointer_speed 3
+safe_set secure long_press_timeout 400
+safe_set system min_refresh_rate 60
+if command -v termux-notification-remove >/dev/null 2>&1; then
+termux-notification-remove tool_up >/dev/null 2>&1
+fi
+echo -e "${Y}Mematikan wakelock...${NC}"
+for i in 1 2 3 4 5; do
+termux-wake-unlock 2>/dev/null
+sleep 0.3
 done
+j=0
+while [ $j -lt 10 ]; do
+termux-wake-unlock 2>/dev/null
+if [ "$SELECTED" = "id" ]; then echo -e "${W}Loop wakelock off ${j}/10 - tekan ENTER jika sudah mati${NC}"; else echo -e "${W}Loop wakelock off ${j}/10 - press ENTER if off${NC}"; fi
+if read -t 1; then break; fi
+j=$((j+1))
+done
+termux-wake-unlock 2>/dev/null
+break
+fi
+done
+termux-wake-unlock 2>/dev/null
 }
 do_update(){
 clear
@@ -467,10 +492,12 @@ do_update
 "as roblox"|"roblox"|"rbx")
 roblox_lobby
 ;;
-"as anti lag"|"as antilag"|"as anti-lag")
+"as antilag")
 clear
 run_antilag
 clear
+echo -e "${G}Antilag selesai, kembali ke menu utama...${NC}"
+for k in 1 2 3; do termux-wake-unlock 2>/dev/null; sleep 0.2; done
 show_cmd
 ;;
 as\ lang* )
@@ -506,6 +533,7 @@ show_cmd
 ;;
 "exit"|"exit in this tool"|"quit"|"q")
 if [ "$SELECTED" = "id" ]; then echo -e "${Y}Keluar...${NC}"; else echo -e "${Y}Exiting...${NC}"; fi
+for w in 1 2 3; do termux-wake-unlock 2>/dev/null; sleep 0.2; done
 exit 0
 ;;
 *)
