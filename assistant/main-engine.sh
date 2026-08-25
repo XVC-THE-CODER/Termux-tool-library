@@ -59,7 +59,7 @@ show_cmd() {
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
         echo -e "${G}as roblox${NC}  - masuk ke Roblox lobby"
-        echo -e "${G}as antilag${NC} - optimasi & boost performa"
+        echo -e "${G}as antilag${NC} - boost performance (tool baru)"
         echo -e "${G}as fileman${NC} - file manager hp full akses"
         echo -e "${G}as lang <id/en/indonesia/english>${NC} - ganti bahasa"
         echo -e "${G}exit${NC}     - keluar dari tool ini"
@@ -69,7 +69,7 @@ show_cmd() {
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
         echo -e "${G}as roblox${NC}  - enter Roblox lobby"
-        echo -e "${G}as antilag${NC} - optimization & performance boost"
+        echo -e "${G}as antilag${NC} - boost performance (new tool)"
         echo -e "${G}as fileman${NC} - full phone file manager"
         echo -e "${G}as lang <id/en/indonesia/english>${NC} - change language"
         echo -e "${G}exit${NC}     - exit from this tool"
@@ -195,29 +195,98 @@ delete_rbx_by_name() {
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE"
 }
 
+exploit_lobby() {
+    clear
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
+        echo -e "${W}command tersembunyi - tidak ada di list Roblox lobby${NC}"
+        echo -e "${W}------------------------------${NC}"
+        echo -e "${G}exp search <keyword>${NC} - cari exploit"
+        echo -e "${G}exp exeup${NC}              - execute update exploit"
+        echo -e "${G}exit${NC}                  - kembali ke Roblox lobby"
+        echo -e "${W}------------------------------${NC}"
+    else
+        echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
+        echo -e "${W}hidden command - not in Roblox lobby list${NC}"
+        echo -e "${W}------------------------------${NC}"
+        echo -e "${G}exp search <keyword>${NC} - search exploit"
+        echo -e "${G}exp exeup${NC}              - execute update exploit"
+        echo -e "${G}exit${NC}                  - back to Roblox lobby"
+        echo -e "${W}------------------------------${NC}"
+    fi
+
+    while true; do
+        echo ""
+        read -p "exploit> " ecmd
+        [ -z "$ecmd" ] && continue
+        efull=$(norm "$ecmd")
+        earg=$(echo "$ecmd" | cut -d' ' -f3- | xargs)
+
+        case "$efull" in
+            exp\ search* )
+                if [ -z "$earg" ]; then
+                    echo -e "${Y}Contoh: exp search fly${NC}"
+                else
+                    echo -e "${C}[EXP] Searching: $earg ... (coming soon)${NC}"
+                fi
+                ;;
+
+            exp\ exeup )
+                echo -e "${C}[EXP] Execute update... (coming soon, dibelakangkan dulu)${NC}"
+                ;;
+
+            exit|quit|q|back|00)
+                clear
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${C}Roblox lobby${NC}"
+                    echo -e "${W}------------------------------${NC}"
+                    echo -e "${G}rbx playgame <id map>${NC}    - langsung masuk ke map"
+                    echo -e "${G}rbx playersearch <id player>${NC} - cari player"
+                    echo -e "${G}rbx save <name> <id map>${NC}   - simpan map"
+                    echo -e "${G}rbx listjoin [name/angka]${NC} - join dari save"
+                    echo -e "${G}rbx rmls [name/angka]${NC}     - hapus save"
+                    echo -e "${G}exit${NC}                      - keluar"
+                    echo -e "${W}------------------------------${NC}"
+                else
+                    echo -e "${C}Roblox lobby${NC}"
+                    echo -e "${W}------------------------------${NC}"
+                    echo -e "${G}rbx playgame <id map>${NC}    - join map"
+                    echo -e "${G}rbx listjoin${NC}             - join from save"
+                    echo -e "${G}exit${NC}                      - exit"
+                    echo -e "${W}------------------------------${NC}"
+                fi
+                break
+                ;;
+
+            *)
+                echo -e "${Y}Unknown exploit command${NC}"
+                ;;
+        esac
+    done
+}
+
 roblox_lobby() {
     clear
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
-        echo -e "${G}rbx playgame <id map>${NC}      - langsung masuk ke map"
-        echo -e "${G}rbx playersearch <id player>${NC} - cari player"
-        echo -e "${G}rbx save <name> <id map>${NC}     - simpan map"
-        echo -e "${G}rbx listjoin [name/angka]${NC}   - join dari save (pakai nomor)"
-        echo -e "${G}rbx rmls [name/angka]${NC}       - hapus save dari database"
-        echo -e "${G}exit${NC}                        - keluar dari Roblox lobby"
+        echo -e "${G}rbx playgame <id map>  / playgame <id>${NC} - langsung masuk ke map"
+        echo -e "${G}rbx playersearch <id> / playersearch <id>${NC} - cari player"
+        echo -e "${G}rbx save <name> <id>  / save <name> <id>${NC} - simpan map"
+        echo -e "${G}rbx listjoin [name/angka] / listjoin${NC} - join dari save"
+        echo -e "${G}rbx rmls [name/angka] / rmls${NC} - hapus save"
+        echo -e "${G}exit${NC} - keluar dari Roblox lobby"
         echo -e "${W}------------------------------${NC}"
     else
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
-        echo -e "${G}rbx playgame <id map>${NC}      - directly join map"
-        echo -e "${G}rbx playersearch <id player>${NC} - search player"
-        echo -e "${G}rbx save <name> <id map>${NC}     - save map"
-        echo -e "${G}rbx listjoin [name/number]${NC}   - join from save"
-        echo -e "${G}rbx rmls [name/number]${NC}       - delete save from database"
-        echo -e "${G}exit${NC}                        - exit from Roblox lobby"
+        echo -e "${G}rbx playgame <id> / playgame <id>${NC} - join map"
+        echo -e "${G}rbx save <name> <id> / save${NC} - save map"
+        echo -e "${G}rbx listjoin / listjoin${NC} - join from save"
+        echo -e "${G}rbx rmls / rmls${NC} - delete save"
+        echo -e "${G}exit${NC} - exit"
         echo -e "${W}------------------------------${NC}"
     fi
 
@@ -228,36 +297,34 @@ roblox_lobby() {
         rfull=$(norm "$rcmd")
 
         case "$rfull" in
-            rbx\ playgame* )
-                rid=$(echo "$rcmd" | awk '{print $3}')
-                if [ -z "$rid" ]; then
+            rbx\ playgame* | playgame* )
+                rid=$(echo "$rcmd" | awk '{print $NF}')
+                if ! echo "$rid" | grep -Eq '^[0-9]+$'; then
+                    rid=$(echo "$rcmd" | awk '{print $3}')
+                fi
+                if [ -z "$rid" ] || ! echo "$rid" | grep -Eq '^[0-9]+$'; then
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Contoh: rbx playgame 123974602339071${NC}"
+                        echo -e "${Y}Contoh: rbx playgame 123974602339071 / playgame 123974602339071${NC}"
                     else
-                        echo -e "${Y}Example: rbx playgame 123974602339071${NC}"
+                        echo -e "${Y}Example: playgame 123974602339071${NC}"
                     fi
                 else
                     roblox_join_by_id "$rid"
                 fi
                 ;;
 
-            rbx\ playersearch* )
-                rid=$(echo "$rcmd" | awk '{print $3}')
+            rbx\ playersearch* | playersearch* )
+                rid=$(echo "$rcmd" | awk '{print $NF}')
                 if [ -z "$rid" ]; then
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Contoh: rbx playersearch 123456${NC}"
-                    else
-                        echo -e "${Y}Example: rbx playersearch 123456${NC}"
-                    fi
+                    echo -e "${Y}Contoh: playersearch 123456${NC}"
                 else
                     termux-open-url "${ROBLOX_PLAYER_URL}${rid}/profile" >/dev/null 2>&1
                     am start -a android.intent.action.VIEW -d "${ROBLOX_PLAYER_DEEP}${rid}" >/dev/null 2>&1
                 fi
                 ;;
 
-            rbx\ save* )
-                save_args=$(echo "$rcmd" | cut -d' ' -f3- | xargs)
-
+            rbx\ save* | save* )
+                save_args=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?save[ ]+//I' | xargs)
                 if [ -z "$save_args" ]; then
                     if [ "$SELECTED" = "id" ]; then
                         read -p "Masukkan nama save: " sname_in
@@ -273,16 +340,12 @@ roblox_lobby() {
                     fi
                     continue
                 fi
-
                 sid=$(echo "$save_args" | awk '{print $NF}')
-
                 if ! echo "$sid" | grep -Eq '^[0-9]+$'; then
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}ID harus angka, masukkan manual:${NC}"
                         read -p "Masukkan nama save: " sname_in
                         read -p "Masukkan ID map: " sid_in
                     else
-                        echo -e "${Y}ID must be number, enter manually:${NC}"
                         read -p "Enter save name: " sname_in
                         read -p "Enter map ID: " sid_in
                     fi
@@ -290,27 +353,18 @@ roblox_lobby() {
                 else
                     sname=$(echo "$save_args" | rev | cut -d' ' -f2- | rev | xargs)
                     if [ -z "$sname" ]; then
-                        if [ "$SELECTED" = "id" ]; then
-                            read -p "Masukkan nama save: " sname
-                        else
-                            read -p "Enter save name: " sname
-                        fi
+                        read -p "Masukkan nama save: " sname
                     fi
                     save_rbx "$sname" "$sid"
                 fi
                 ;;
 
-            rbx\ listjoin* )
-                arg=$(echo "$rcmd" | cut -d' ' -f3- | xargs)
+            rbx\ listjoin* | listjoin* )
+                arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?listjoin[ ]*//I' | xargs)
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Belum ada save-an${NC}"
-                    else
-                        echo -e "${Y}No saves${NC}"
-                    fi
+                    echo -e "${Y}Belum ada save-an${NC}"
                     continue
                 fi
-
                 if [ -z "$arg" ]; then
                     list_rbx
                     echo ""
@@ -322,42 +376,28 @@ roblox_lobby() {
                         read -p "Enter save number: " num
                     fi
                     join_id=$(get_rbx_by_num "$num")
-                    if [ -z "$join_id" ]; then
-                        echo -e "${R}Nomor tidak ditemukan${NC}"
-                    else
-                        roblox_join_by_id "$join_id"
-                    fi
+                    [ -z "$join_id" ] && echo -e "${R}Nomor tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                 else
                     if echo "$arg" | grep -Eq '^[0-9]+$'; then
                         join_id=$(get_rbx_by_num "$arg")
                     else
                         join_id=$(get_rbx_by_name "$arg")
-                        if [ -z "$join_id" ]; then
-                            join_id=$(grep -i "$arg" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2)
-                        fi
+                        [ -z "$join_id" ] && join_id=$(grep -i "$arg" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2)
                     fi
-                    if [ -z "$join_id" ]; then
-                        echo -e "${R}Save tidak ditemukan: $arg${NC}"
-                    else
-                        roblox_join_by_id "$join_id"
-                    fi
+                    [ -z "$join_id" ] && echo -e "${R}Save tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                 fi
                 ;;
 
-            rbx\ rmls* )
+            rbx\ rmls* | rmls* )
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
                     echo -e "${Y}Belum ada save-an${NC}"
                     continue
                 fi
-                arg=$(echo "$rcmd" | cut -d' ' -f3- | xargs)
+                arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?rmls[ ]*//I' | xargs)
                 if [ -z "$arg" ]; then
                     list_rbx
                     echo ""
-                    if [ "$SELECTED" = "id" ]; then
-                        read -p "Masukkan angka yang mau dihapus: " delnum
-                    else
-                        read -p "Enter number to delete: " delnum
-                    fi
+                    read -p "Masukkan angka yang mau dihapus: " delnum
                     if echo "$delnum" | grep -Eq '^[0-9]+$'; then
                         delete_rbx_by_num "$delnum"
                         echo -e "${G}Dihapus nomor $delnum${NC}"
@@ -371,6 +411,10 @@ roblox_lobby() {
                         echo -e "${G}Dihapus: $arg${NC}"
                     fi
                 fi
+                ;;
+
+            exploit )
+                exploit_lobby
                 ;;
 
             exit\ roblox|exit|quit|q|keluar)
@@ -393,22 +437,13 @@ roblox_lobby() {
 run_fileman() {
     if [ ! -d "$HOME/storage" ]; then
         clear
-        if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}File Manager butuh izin akses storage...${NC}"
-            echo -e "${W}Menjalankan termux-setup-storage...${NC}"
-        else
-            echo -e "${Y}File Manager needs storage permission...${NC}"
-            echo -e "${W}Running termux-setup-storage...${NC}"
-        fi
+        echo -e "${Y}File Manager butuh izin akses storage...${NC}"
         termux-setup-storage
         sleep 2
         echo -e "${G}Silakan izinkan akses file di popup Android, lalu tekan ENTER${NC}"
         read -p "> "
     fi
-
-    if ! command -v nano >/dev/null 2>&1; then
-        pkg install -y nano >/dev/null 2>&1
-    fi
+    command -v nano >/dev/null 2>&1 || pkg install -y nano >/dev/null 2>&1
 
     CUR_DIR="/sdcard"
     [ ! -d "$CUR_DIR" ] && CUR_DIR="$HOME"
@@ -417,13 +452,7 @@ run_fileman() {
         clear
         echo -e "${C}File Manager - $CUR_DIR${NC}"
         echo -e "${W}------------------------------${NC}"
-
-        if [ ! -d "$CUR_DIR" ]; then
-            CUR_DIR="$HOME"
-        fi
-
         mapfile -t ENTRIES < <(ls -A "$CUR_DIR" 2>/dev/null)
-
         if [ ${#ENTRIES[@]} -eq 0 ]; then
             echo -e "${Y}Folder kosong${NC}"
         else
@@ -437,22 +466,14 @@ run_fileman() {
                 i=$((i+1))
             done
         fi
-
         echo -e "${W}------------------------------${NC}"
-        if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}Ketik angka 1-infinite untuk masuk folder${NC}"
-            echo -e "${Y}Ketik nama file untuk edit via nano${NC}"
-            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar${NC}"
-        else
-            echo -e "${Y}Type number 1-infinite to enter folder${NC}"
-            echo -e "${Y}Type filename to edit via nano${NC}"
-            echo -e "${Y}Type 00 to go back, 0 to exit${NC}"
-        fi
+        echo -e "${Y}Ketik angka 1-infinite untuk masuk folder${NC}"
+        echo -e "${Y}Ketik nama file untuk edit via nano${NC}"
+        echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar${NC}"
         echo ""
-
         read -p "fileman> " finp
-        [ -z "$finp" ] && continue
         finp_trim=$(echo "$finp" | xargs)
+        [ -z "$finp_trim" ] && continue
 
         if [ "$finp_trim" = "0" ] || [ "$finp_trim" = "exit" ] || [ "$finp_trim" = "q" ]; then
             clear
@@ -474,8 +495,7 @@ run_fileman() {
         if echo "$finp_trim" | grep -Eq '^[0-9]+$'; then
             num=$finp_trim
             if [ "$num" -ge 1 ] && [ "$num" -le ${#ENTRIES[@]} ]; then
-                idx=$((num-1))
-                sel="${ENTRIES[$idx]}"
+                sel="${ENTRIES[$((num-1))]}"
                 tpath="$CUR_DIR/$sel"
                 if [ -d "$tpath" ]; then
                     CUR_DIR="$tpath"
@@ -483,14 +503,10 @@ run_fileman() {
                     if echo "$tpath" | grep -qi "\.apk$"; then
                         termux-open "$tpath" >/dev/null 2>&1
                         am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
-                        pm install -r "$tpath" >/dev/null 2>&1
                     else
                         nano "$tpath"
                     fi
                 fi
-            else
-                echo -e "${R}Nomor tidak ada${NC}"
-                sleep 1
             fi
         else
             tpath="$CUR_DIR/$finp_trim"
@@ -505,230 +521,29 @@ run_fileman() {
                         nano "$tpath"
                     fi
                 fi
-            else
-                found=$(printf "%s\n" "${ENTRIES[@]}" | grep -i "^${finp_trim}$" | head -n 1)
-                if [ -n "$found" ]; then
-                    tpath="$CUR_DIR/$found"
-                    if [ -d "$tpath" ]; then
-                        CUR_DIR="$tpath"
-                    else
-                        if echo "$tpath" | grep -qi "\.apk$"; then
-                            termux-open "$tpath" >/dev/null 2>&1
-                            am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
-                        else
-                            nano "$tpath"
-                        fi
-                    fi
-                else
-                    echo -e "${R}File/folder tidak ditemukan${NC}"
-                    sleep 1
-                fi
             fi
         fi
     done
 }
 
 run_antilag() {
-    if [ "$SELECTED" = "id" ]; then
-        TXT_APP="v2.5 boost game Performa"
-        TXT_VER="VERSI"
-        TXT_FUNGSI="DAFTAR FUNGSI"
-        TXT_INFO="INFO PERANGKAT"
-        TXT_TEMP="Suhu"
-        TXT_RAM="RAM Bebas"
-        TXT_TEKAN="Tekan [ENTER] untuk BERHENTI"
-        TXT_STOP_TXT="BERHENTI"
-    else
-        TXT_APP="v2.5 boost game performance"
-        TXT_VER="VERSION"
-        TXT_FUNGSI="FUNCTION LIST"
-        TXT_INFO="DEVICE INFO"
-        TXT_TEMP="Temp"
-        TXT_RAM="RAM Free"
-        TXT_TEKAN="Press [ENTER] to STOP"
-        TXT_STOP_TXT="STOP"
-    fi
-
-    _b=$(getprop $(echo cm8ucHJvZHVjdC5icmFuZA== | base64 -d) 2>/dev/null)
-    _m=$(getprop $(echo cm8ucHJvZHVjdC5tb2RlbA== | base64 -d) 2>/dev/null)
-    _c=$(getprop $(echo cm8uYm9hcmQucGxhdGZvcm0= | base64 -d) 2>/dev/null)
-    [ -z "$_c" ] && _c=$(getprop $(echo cm8uaGFyZHdhcmU= | base64 -d) 2>/dev/null)
-    [ -z "$_c" ] && _c=$(cat /proc/cpuinfo 2>/dev/null | grep Hardware | head -1 | cut -d: -f2 | xargs)
-    _k=$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')
-    _g=$(( _k / 1024 ))
-    _v=$(getprop $(echo cm8uYnVpbGQudmVyc2lvbi5yZWxlYXNl | base64 -d) 2>/dev/null)
-    [ -z "$_b" ] && _b=$(echo R2VuZXJpYw== | base64 -d)
-    [ -z "$_m" ] && _m=$(echo RGV2aWNl | base64 -d)
-    [ -z "$_c" ] && _c=$(echo VW5rbm93bg== | base64 -d)
-
-    if [ "$_g" -le 4 ]; then
-        TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5
-    elif [ "$_g" -le 6 ]; then
-        TIER=2; TIER_NAME="MID"; BOOST_POWER="75% PERFORMANCE"; MAX_CPU_PERCENT=90; REFRESH=90; ANIM=0.3
-    elif [ "$_g" -le 8 ]; then
-        TIER=3; TIER_NAME="HIGH"; BOOST_POWER="100% TURBO"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0
-    else
-        TIER=4; TIER_NAME="EXTREME"; BOOST_POWER="120% EXTREME OC"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0
-    fi
-
-    if echo "$_c" | grep -qi "mt6765\|helio\|G35\|G25\|G85"; then
-        TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5
-    fi
-
-    safe_set() { settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.08; }
-    get_temp() {
-        MAX=0
-        for f in /sys/class/thermal/thermal_zone*/temp; do
-            [ -f "$f" ] || continue
-            T=$(cat $f 2>/dev/null)
-            [ "$T" -gt 1000 ] && T=$((T/1000))
-            [ "$T" -gt "$MAX" ] && MAX=$T
-        done
-        [ "$MAX" -eq 0 ] && MAX=38
-        echo $MAX
-    }
-    get_ram_free() { free -m | awk '/Mem:/{print $7}'; }
-    get_fps_auto() {
-        TEMP=$(get_temp); RAM=$(get_ram_free)
-        if [ "$TIER" -eq 1 ]; then MAX_FPS=60
-        elif [ "$TIER" -eq 2 ]; then MAX_FPS=90
-        else MAX_FPS=120
-        fi
-        if [ "$TEMP" -lt 42 ] && [ "$RAM" -gt 1000 ]; then echo $MAX_FPS
-        elif [ "$TEMP" -lt 46 ]; then echo $((MAX_FPS-2))
-        else echo $((MAX_FPS-6))
-        fi
-    }
-    has_cooler() {
-        if ls /sys/class/thermal/cooling_device* >/dev/null 2>&1; then return 0
-        elif ls /sys/class/thermal/thermal_zone* >/dev/null 2>&1; then return 0
-        else return 1
-        fi
-    }
-    if has_cooler; then COOLER_ENABLED=1; COOLER_STATUS="AUTO"; else COOLER_ENABLED=0; COOLER_STATUS="NOT SUPPORTED - DISABLED"; fi
-
-    stealth_cache_clean() {
-        pm trim-caches 2048M >/dev/null 2>&1
-        for p in /sdcard/Android/data/*/cache /sdcard/Android/data/*/files/cache /sdcard/Android/obb/*/cache /sdcard/DCIM/.thumbnails /sdcard/.cache; do
-            rm -rf $p/* >/dev/null 2>&1
-        done
-        find /sdcard -type f \( -name "*.tmp" -o -name "*.log" -o -name "cache_*" \) -delete >/dev/null 2>&1
-        cmd package bg-dexopt-job >/dev/null 2>&1 &
-    }
-    ultra_anti_ads() {
-        safe_set global private_dns_mode hostname
-        safe_set global private_dns_specifier $(echo ZG5zLmFkZ3VhcmQuY29t | base64 -d)
-        safe_set global ad_services_enabled 0
-        safe_set secure limit_ad_tracking 1
-    }
-    ultra_anti_lag() {
-        pm trim-caches 999M >/dev/null 2>&1
-        cmd package bg-dexopt-job >/dev/null 2>&1 &
-        safe_set global cached_apps_freezer enabled
-        safe_set global activity_starts_logging_enabled 0
-        if [ "$TIER" -eq 1 ]; then am kill-all >/dev/null 2>&1; fi
-    }
-    boost_cpu_gpu() {
-        safe_set system pointer_speed 7
-        safe_set global sem_enhanced_cpu_responsiveness 1
-        safe_set system peak_refresh_rate $REFRESH
-        safe_set system min_refresh_rate $REFRESH
-        safe_set global window_animation_scale $ANIM
-        safe_set global transition_animation_scale $ANIM
-        safe_set global animator_duration_scale $ANIM
-        renice -n -10 $$ >/dev/null 2>&1
-    }
-    slippery_logic() {
-        TEMP=$1; FPS=$2
-        if [ "$FPS" -ge 55 ]; then SLOP=4; TO=150
-        elif [ "$FPS" -ge 40 ]; then SLOP=6; TO=170
-        else SLOP=8; TO=190
-        fi
-        safe_set system view_configuration_touch_slop $SLOP
-        safe_set secure long_press_timeout $TO
-    }
-    game_loader_boost() {
-        for pkg in $(pm list packages -3 2>/dev/null | cut -d: -f2 | grep -i -E "mobile|legend|pubg|free|minecraft|roblox|genshin|codm|mlbb" | head -8); do
-            cmd package compile -m speed-profile -f $pkg >/dev/null 2>&1 &
-        done
-    }
-    map_gen_boost() {
-        safe_set system large_heap 1
-        safe_set global map_preload_distance 12
-    }
-    cooler_logic() {
-        if [ "$COOLER_ENABLED" -eq 0 ]; then echo "$COOLER_STATUS"; return; fi
-        TEMP=$1
-        if [ "$TEMP" -ge 48 ]; then RFS=60; MODE="COOLER EXTREME $TEMP°C"
-        elif [ "$TEMP" -ge 44 ]; then RFS=90; MODE="COOLER HARD $TEMP°C"
-        else RFS=120; MODE="COOLER STABLE $TEMP°C"
-        fi
-        safe_set system peak_refresh_rate $RFS
-        safe_set system min_refresh_rate $RFS
-        echo $MODE
-    }
-    notify_start() {
-        echo -e "${Y}update : $1${NC}"
-        if command -v termux-notification >/dev/null 2>&1; then
-            termux-notification --id tool_up --title "System Tool" --content "update : $1" --priority low >/dev/null 2>&1
-        fi
-    }
-    notify_clear() {
-        printf "\033[1A\033[2K"
-        if command -v termux-notification-remove >/dev/null 2>&1; then
-            termux-notification-remove tool_up >/dev/null 2>&1
-        fi
-    }
-    draw_box() {
-        TEMP=$1; RAM=$2; FPS=$3; COOLER_INFO=$4; TIER_NOW=$5; BOOST_NOW=$6
-        PERC=$((FPS*100/60)); [ "$PERC" -gt 100 ] && PERC=100
-        FILL=$((PERC/10))
-        BAR=$(printf "%${FILL}s" | tr ' ' '#')
-        EBAR=$(printf "%$((10-FILL))s" | tr ' ' '-')
-        clear
-        echo -e "${C}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}"
-        echo -e " ${W}$TXT_VER : $TXT_APP${NC}"
-        echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
-        echo -e " ${W}$TXT_FUNGSI :${NC}"
-        echo -e " ${G}[✓]${NC} ${W}all system performance : active${NC}"
-        echo -e " ${G}[✓]${NC} ${W}tier device : $TIER_NOW${NC}"
-        echo -e " ${G}[✓]${NC} ${W}boost power : $BOOST_NOW${NC}"
-        echo -e " ${G}[✓]${NC} ${W}cpu gpu boost : $MAX_CPU_PERCENT% | $REFRESH Hz Locked${NC}"
-        echo -e " ${G}[✓]${NC} ${W}cooler cpu gpu : $COOLER_INFO${NC}"
-        echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
-        echo -e " ${W}$TXT_INFO : RAM ${_g}GB Free ${RAM}MB | Andro $_v${NC}"
-        echo -e " ${W}$TXT_TEMP:${TEMP}°C $TXT_RAM:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC%${NC}"
-        echo -e "${C}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
-        echo ""
-    }
-
-    termux-wake-lock 2>/dev/null
-    CYCLE=0
-    while true; do
-        TEMP=$(get_temp); RAM=$(get_ram_free); FPS=$(get_fps_auto); CYCLE=$((CYCLE+1))
-        COOLER_INFO=$(cooler_logic $TEMP)
-        draw_box $TEMP $RAM $FPS "$COOLER_INFO" "$TIER_NAME" "$BOOST_POWER"
-        notify_start "anti lag"; ultra_anti_lag; notify_clear
-        notify_start "block ads"; ultra_anti_ads; notify_clear
-        notify_start "cpu gpu"; boost_cpu_gpu; notify_clear
-        notify_start "slippery sensitivity"; slippery_logic $TEMP $FPS; notify_clear
-        notify_start "game loading"; game_loader_boost; notify_clear
-        notify_start "map gen"; map_gen_boost; notify_clear
-        echo -e "${G}[$(date +%T)] ALL IN ONE: $BOOST_POWER | $COOLER_INFO${NC}"
-        echo -e "${W}>> $TXT_TEKAN <<${NC}"
-        if read -t 2; then
-            clear
-            echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"
-            safe_set global private_dns_mode opportunistic
-            safe_set system pointer_speed 3
-            safe_set secure long_press_timeout 400
-            safe_set system min_refresh_rate 60
-            if command -v termux-notification-remove >/dev/null 2>&1; then
-                termux-notification-remove tool_up >/dev/null 2>&1
-            fi
-            break
-        fi
-    done
+    clear
+    echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
+    echo -e "${W}------------------------------${NC}"
+    cd ~
+    rm -rf Termux-tool-library 2>/dev/null
+    pkg update -y
+    pkg install -y git
+    git clone https://github.com/XVC-THE-CODER/Termux-tool-library.git
+    cd Termux-tool-library
+    cd boost-performance
+    chmod +x command.sh main-engine.sh
+    bash command.sh
+    bash main-engine.sh
+    cd ~
+    echo -e "${G}Selesai, kembali ke menu utama...${NC}"
+    sleep 1
+    clear
 }
 
 do_update() {
@@ -789,9 +604,7 @@ while true; do
             ;;
 
         "as antilag")
-            clear
             run_antilag
-            clear
             show_cmd
             ;;
 
@@ -801,21 +614,13 @@ while true; do
 
         as\ lang* )
             if [ -z "$lang_arg" ]; then
-                if [ "$SELECTED" = "id" ]; then
-                    echo -e "${Y}Contoh: as lang id / as lang indonesia / as lang en${NC}"
-                else
-                    echo -e "${Y}Example: as lang id / as lang indonesia / as lang en${NC}"
-                fi
+                echo -e "${Y}Contoh: as lang id / as lang indonesia${NC}"
                 continue
             fi
             larg=$(norm "$lang_arg")
             case "$larg" in
                 1|2)
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${R}Angka tidak bisa, pakai id/en atau nama bahasa saja${NC}"
-                    else
-                        echo -e "${R}Numbers not allowed, use id/en or language name only${NC}"
-                    fi
+                    echo -e "${R}Angka tidak bisa, pakai id/en atau nama bahasa saja${NC}"
                     ;;
                 id|indonesia|indo)
                     SELECTED="id"
@@ -830,7 +635,7 @@ while true; do
                     show_cmd
                     ;;
                 *)
-                    echo -e "${R}Bahasa tidak dikenal. Pakai: id, en, indonesia, english${NC}"
+                    echo -e "${R}Bahasa tidak dikenal${NC}"
                     ;;
             esac
             ;;
@@ -841,20 +646,11 @@ while true; do
             ;;
 
         "exit"|"quit"|"q")
-            if [ "$SELECTED" = "id" ]; then
-                echo -e "${Y}Keluar...${NC}"
-            else
-                echo -e "${Y}Exiting...${NC}"
-            fi
             exit 0
             ;;
 
         *)
-            if [ "$SELECTED" = "id" ]; then
-                echo -e "${Y}Perintah tidak dikenal, ketik as help${NC}"
-            else
-                echo -e "${Y}Unknown command, type as help${NC}"
-            fi
+            echo -e "${Y}Perintah tidak dikenal${NC}"
             ;;
     esac
 done
