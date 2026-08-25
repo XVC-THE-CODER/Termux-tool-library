@@ -42,6 +42,7 @@ echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - update via github & restart"
 echo -e "${G}as roblox${NC} - masuk ke Roblox lobby"
 echo -e "${G}as antilag${NC} - optimasi & boost performa"
+echo -e "${G}as fileman${NC} - file manager hp full akses"
 echo -e "${G}as lang <id/en/indonesia/english>${NC} - ganti bahasa"
 echo -e "${G}exit${NC} - keluar dari tool ini"
 echo -e "${W}------------------------------${NC}"
@@ -51,6 +52,7 @@ echo -e "${W}------------------------------${NC}"
 echo -e "${G}as update${NC} - update via github & restart"
 echo -e "${G}as roblox${NC} - enter Roblox lobby"
 echo -e "${G}as antilag${NC} - optimization & performance boost"
+echo -e "${G}as fileman${NC} - full phone file manager"
 echo -e "${G}as lang <id/en/indonesia/english>${NC} - change language"
 echo -e "${G}exit${NC} - exit from this tool"
 echo -e "${W}------------------------------${NC}"
@@ -208,7 +210,133 @@ if [ "$SELECTED" = "id" ]; then echo -e "${Y}Command tidak dikenal di Roblox lob
 esac
 done
 }
+run_fileman(){
+if [ ! -d "$HOME/storage" ]; then
+clear
+if [ "$SELECTED" = "id" ]; then
+echo -e "${Y}File Manager butuh izin akses storage...${NC}"
+echo -e "${W}Menjalankan termux-setup-storage...${NC}"
+else
+echo -e "${Y}File Manager needs storage permission...${NC}"
+echo -e "${W}Running termux-setup-storage...${NC}"
+fi
+termux-setup-storage
+sleep 2
+echo -e "${G}Silakan izinkan akses file di popup Android, lalu tekan ENTER${NC}"
+read -p "> "
+fi
+if ! command -v nano >/dev/null 2>&1; then
+pkg install -y nano >/dev/null 2>&1
+fi
+CUR_DIR="$HOME"
+if [ -d "/sdcard" ]; then CUR_DIR="/sdcard"; fi
+while true; do
+clear
+if [ "$SELECTED" = "id" ]; then
+echo -e "${C}File Manager - $CUR_DIR${NC}"
+echo -e "${W}------------------------------${NC}"
+else
+echo -e "${C}File Manager - $CUR_DIR${NC}"
+echo -e "${W}------------------------------${NC}"
+fi
+if [ ! -d "$CUR_DIR" ]; then CUR_DIR="$HOME"; fi
+mapfile -t ENTRIES < <(ls -A "$CUR_DIR" 2>/dev/null)
+if [ ${#ENTRIES[@]} -eq 0 ]; then
+echo -e "${Y}Folder kosong${NC}"
+else
+i=1
+for e in "${ENTRIES[@]}"; do
+if [ -d "$CUR_DIR/$e" ]; then
+echo -e "${W}${i}. ${B}[DIR] ${e}${NC}"
+else
+echo -e "${W}${i}. ${W}${e}${NC}"
+fi
+i=$((i+1))
+done
+fi
+echo -e "${W}------------------------------${NC}"
+if [ "$SELECTED" = "id" ]; then
+echo -e "${Y}Ketik angka 1-infinite untuk masuk folder${NC}"
+echo -e "${Y}Ketik nama file untuk edit via nano${NC}"
+echo -e "${Y}Ketik .. untuk kembali, 0 untuk keluar${NC}"
+else
+echo -e "${Y}Type number 1-infinite to enter folder${NC}"
+echo -e "${Y}Type filename to edit via nano${NC}"
+echo -e "${Y}Type .. to go back, 0 to exit${NC}"
+fi
+echo ""
+read -p "fileman> " finp
+[ -z "$finp" ] && continue
+finp_trim=$(echo "$finp" | xargs)
+if [ "$finp_trim" = "0" ] || [ "$finp_trim" = "exit" ] || [ "$finp_trim" = "q" ] || [ "$finp_trim" = "quit" ]; then
+clear
+show_cmd
+break
+fi
+if [ "$finp_trim" = ".." ] || [ "$finp_trim" = "back" ]; then
+CUR_DIR=$(dirname "$CUR_DIR")
+continue
+fi
+if echo "$finp_trim" | grep -Eq '^[0-9]+$'; then
+num=$finp_trim
+if [ "$num" -ge 1 ] && [ "$num" -le ${#ENTRIES[@]} ]; then
+idx=$((num-1))
+sel="${ENTRIES[$idx]}"
+tpath="$CUR_DIR/$sel"
+if [ -d "$tpath" ]; then
+CUR_DIR="$tpath"
+else
+nano "$tpath"
+fi
+else
+if [ "$SELECTED" = "id" ]; then echo -e "${R}Nomor tidak ada${NC}"; else echo -e "${R}Number not found${NC}"; fi
+sleep 1
+fi
+else
+tpath="$CUR_DIR/$finp_trim"
+if [ -e "$tpath" ]; then
+if [ -d "$tpath" ]; then
+CUR_DIR="$tpath"
+else
+nano "$tpath"
+fi
+else
+found=$(printf "%s\n" "${ENTRIES[@]}" | grep -i "^${finp_trim}$" | head -n 1)
+if [ -n "$found" ]; then
+tpath="$CUR_DIR/$found"
+if [ -d "$tpath" ]; then
+CUR_DIR="$tpath"
+else
+nano "$tpath"
+fi
+else
+if [ "$SELECTED" = "id" ]; then echo -e "${R}File/folder tidak ditemukan: $finp_trim${NC}"; else echo -e "${R}File/folder not found: $finp_trim${NC}"; fi
+sleep 1
+fi
+fi
+fi
+done
+}
 run_antilag(){
+if [ "$SELECTED" = "id" ]; then
+TXT_APP=$(echo djIuNSAgYm9vc3QgZ2FtZSBQZXJmb3JtYQ== | base64 -d)
+TXT_VER="VERSI"
+TXT_FUNGSI="DAFTAR FUNGSI"
+TXT_INFO="INFO PERANGKAT"
+TXT_TEMP="Suhu"
+TXT_RAM="RAM Bebas"
+TXT_TEKAN="Tekan [ENTER] untuk BERHENTI"
+TXT_STOP_TXT="BERHENTI"
+else
+TXT_APP=$(echo djIuNSAgYm9vc3QgZ2FtZSBQZXJmb3JtYW5jZSBnYW1l | base64 -d)
+TXT_VER="VERSION"
+TXT_FUNGSI="FUNCTION LIST"
+TXT_INFO="DEVICE INFO"
+TXT_TEMP="Temp"
+TXT_RAM="RAM Free"
+TXT_TEKAN="Press [ENTER] to STOP"
+TXT_STOP_TXT="STOP"
+fi
 _b=$(getprop $(echo cm8ucHJvZHVjdC5icmFuZA== | base64 -d) 2>/dev/null)
 _m=$(getprop $(echo cm8ucHJvZHVjdC5tb2RlbA== | base64 -d) 2>/dev/null)
 _c=$(getprop $(echo cm8uYm9hcmQucGxhdGZvcm0= | base64 -d) 2>/dev/null)
@@ -220,14 +348,6 @@ _v=$(getprop $(echo cm8uYnVpbGQudmVyc2lvbi5yZWxlYXNl | base64 -d) 2>/dev/null)
 [ -z "$_b" ] && _b=$(echo R2VuZXJpYw== | base64 -d)
 [ -z "$_m" ] && _m=$(echo RGV2aWNl | base64 -d)
 [ -z "$_c" ] && _c=$(echo VW5rbm93bg== | base64 -d)
-TXT_APP=$(echo djIuNSAgICAgYm9vc3QgcGVyZm9tYW5jZSBnYW1l | base64 -d)
-TXT_VER="VERSION"
-TXT_FUNGSI="FUNCTION LIST"
-TXT_INFO="INFO"
-TXT_TEMP="Temp"
-TXT_RAM="RAM Free"
-TXT_TEKAN="Press [ENTER] to STOP"
-TXT_STOP_TXT="STOP"
 if [ "$_g" -le 4 ]; then
 TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 elif [ "$_g" -le 6 ]; then
@@ -499,6 +619,9 @@ clear
 echo -e "${G}Antilag selesai, kembali ke menu utama...${NC}"
 for k in 1 2 3; do termux-wake-unlock 2>/dev/null; sleep 0.2; done
 show_cmd
+;;
+"as fileman")
+run_fileman
 ;;
 as\ lang* )
 if [ -z "$lang_arg" ]; then
