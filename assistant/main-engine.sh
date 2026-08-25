@@ -58,21 +58,62 @@ echo -e "${G}exit${NC} - exit from this tool"
 echo -e "${W}------------------------------${NC}"
 fi
 }
+find_available_server(){
+placeId="$1"
+[ -z "$placeId" ] && echo "" && return
+if ! command -v curl >/dev/null 2>&1; then echo ""; return; fi
+universeJson=$(curl -s "https://apis.roblox.com/universes/v1/places/${placeId}/universe" --max-time 5 2>/dev/null)
+universeId=$(echo "$universeJson" | grep -o '"universeId":[0-9]*' | head -n1 | cut -d: -f2)
+[ -z "$universeId" ] && echo "" && return
+serversJson=$(curl -s "https://games.roblox.com/v1/games/${universeId}/servers/Public?limit=100&sortOrder=Asc" --max-time 7 2>/dev/null)
+if command -v python3 >/dev/null 2>&1; then
+serverId=$(echo "$serversJson" | python3 -c "
+import json,sys
+try:
+ data=json.load(sys.stdin)
+ for s in data.get('data',[]):
+  maxp=s.get('maxPlayers',10)
+  playing=s.get('playing',10)
+  if playing < maxp - 1:
+   print(s.get('id',''))
+   break
+except:
+ pass
+" 2>/dev/null)
+else
+serverId=$(echo "$serversJson" | grep -o '"id":"[^"]*".*"playing":[0-9]*,"maxPlayers":[0-9]*' | while read -r line; do
+playing=$(echo "$line" | grep -o '"playing":[0-9]*' | cut -d: -f2)
+maxp=$(echo "$line" | grep -o '"maxPlayers":[0-9]*' | cut -d: -f2)
+if [ -n "$playing" ] && [ -n "$maxp" ] && [ "$playing" -lt $((maxp-1)) ]; then
+echo "$line" | grep -o '"id":"[^"]*"' | head -n1 | cut -d'"' -f4
+break
+fi
+done)
+fi
+echo "$serverId"
+}
 roblox_join_by_id(){
 id="$1"
 [ -z "$id" ] && return
+serverId=$(find_available_server "$id" 2>/dev/null)
 uuid=$(gen_uuid)
-link="https://ro.blox.com/Ebh5?is_retargeting=false&pid=experiencestart_mobileweb&af_dp=https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${id}%26joinAttemptId%3D${uuid}&af_web_dp=https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${id}%26joinAttemptId%3D${uuid}&deep_link_value=https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${id}%26joinAttemptId%3D${uuid}"
+if [ -n "$serverId" ]; then
+inner="https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${id}%26gameInstanceId%3D${serverId}%26joinAttemptId%3D${uuid}"
+else
+inner="https%3A%2F%2Fwww.roblox.com%2Fgames%2Fstart%3Fplaceid%3D${id}%26joinAttemptId%3D${uuid}"
+fi
+link="https://ro.blox.com/Ebh5?is_retargeting=false&pid=experiencestart_mobileweb&af_dp=${inner}&af_web_dp=${inner}&deep_link_value=${inner}"
 if [ "$SELECTED" = "id" ]; then echo -e "${G}Join map ID: $id${NC}"; else echo -e "${G}Joining map ID: $id${NC}"; fi
-echo -e "${W}$link${NC}"
 termux-open-url "$link" >/dev/null 2>&1
 am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
 am start -a android.intent.action.VIEW -d "roblox://placeId=$id" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "roblox://experiences/start?placeId=$id" >/dev/null 2>&1
 }
 save_rbx(){
 name="$1"
 id="$2"
 [ -z "$name" ] || [ -z "$id" ] && return
+name=$(echo "$name" | sed 's/ /_/g' | xargs)
 touch "$SAVE_FILE"
 grep -v "^${name}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp" || true
 mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null || true
@@ -102,6 +143,7 @@ echo "$line" | cut -d'|' -f2
 get_rbx_by_name(){
 sname="$1"
 [ -z "$sname" ] && return 1
+sname=$(echo "$sname" | sed 's/ /_/g')
 grep -i "^${sname}|" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2
 }
 roblox_lobby(){
@@ -152,12 +194,45 @@ am start -a android.intent.action.VIEW -d "${ROBLOX_PLAYER_DEEP}${rid}" >/dev/nu
 fi
 ;;
 rbx\ save* )
-save_args=$(echo "$rcmd" | cut -d' ' -f3-)
+save_args=$(echo "$rcmd" | cut -d' ' -f3- | xargs)
+if [ -z "$save_args" ]; then
+if [ "$SELECTED" = "id" ]; then
+echo -e "${Y}Nama belum diisi${NC}"
+read -p "Masukkan nama save: " sname_in
+sname_in=$(echo "$sname_in" | sed 's/ /_/g' | xargs)
+read -p "Masukkan ID map: " sid_in
+sid_in=$(echo "$sid_in" | xargs)
+else
+echo -e "${Y}Name empty${NC}"
+read -p "Enter save name: " sname_in
+sname_in=$(echo "$sname_in" | sed 's/ /_/g' | xargs)
+read -p "Enter map ID: " sid_in
+sid_in=$(echo "$sid_in" | xargs)
+fi
+if [ -n "$sname_in" ] && [ -n "$sid_in" ]; then
+save_rbx "$sname_in" "$sid_in"
+fi
+continue
+fi
 sid=$(echo "$save_args" | awk '{print $NF}')
 sname=$(echo "$save_args" | sed "s/ ${sid}\$//" | sed "s/^ *//;s/ *$//")
 if [ -z "$sname" ] || [ -z "$sid" ] || [ "$sname" = "$sid" ]; then
-if [ "$SELECTED" = "id" ]; then echo -e "${Y}Contoh: rbx save lobbyku 123974602339071${NC}"; else echo -e "${Y}Example: rbx save mylobby 123974602339071${NC}"; fi
+if [ "$SELECTED" = "id" ]; then
+echo -e "${Y}Nama tidak lengkap, masukkan manual:${NC}"
+read -p "Masukkan nama save: " sname_in
+sname_in=$(echo "$sname_in" | sed 's/ /_/g' | xargs)
+read -p "Masukkan ID map: " sid_in
 else
+echo -e "${Y}Incomplete, enter manually:${NC}"
+read -p "Enter save name: " sname_in
+sname_in=$(echo "$sname_in" | sed 's/ /_/g' | xargs)
+read -p "Enter map ID: " sid_in
+fi
+if [ -n "$sname_in" ] && [ -n "$sid_in" ]; then
+save_rbx "$sname_in" "$sid_in"
+fi
+else
+sname=$(echo "$sname" | sed 's/ /_/g')
 save_rbx "$sname" "$sid"
 fi
 ;;
@@ -187,7 +262,8 @@ else
 if echo "$arg" | grep -Eq '^[0-9]+$'; then
 join_id=$(get_rbx_by_num "$arg")
 else
-join_id=$(get_rbx_by_name "$arg")
+arg_u=$(echo "$arg" | sed 's/ /_/g')
+join_id=$(get_rbx_by_name "$arg_u")
 if [ -z "$join_id" ]; then
 join_id=$(grep -i "$arg" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2)
 fi
@@ -258,11 +334,11 @@ echo -e "${W}------------------------------${NC}"
 if [ "$SELECTED" = "id" ]; then
 echo -e "${Y}Ketik angka 1-infinite untuk masuk folder${NC}"
 echo -e "${Y}Ketik nama file untuk edit via nano${NC}"
-echo -e "${Y}Ketik .. untuk kembali, 0 untuk keluar${NC}"
+echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar${NC}"
 else
 echo -e "${Y}Type number 1-infinite to enter folder${NC}"
 echo -e "${Y}Type filename to edit via nano${NC}"
-echo -e "${Y}Type .. to go back, 0 to exit${NC}"
+echo -e "${Y}Type 00 to go back, 0 to exit${NC}"
 fi
 echo ""
 read -p "fileman> " finp
@@ -273,7 +349,7 @@ clear
 show_cmd
 break
 fi
-if [ "$finp_trim" = ".." ] || [ "$finp_trim" = "back" ]; then
+if [ "$finp_trim" = "00" ] || [ "$finp_trim" = ".." ] || [ "$finp_trim" = "back" ]; then
 CUR_DIR=$(dirname "$CUR_DIR")
 continue
 fi
@@ -286,7 +362,15 @@ tpath="$CUR_DIR/$sel"
 if [ -d "$tpath" ]; then
 CUR_DIR="$tpath"
 else
+if echo "$tpath" | grep -qi "\.apk$"; then
+if [ "$SELECTED" = "id" ]; then echo -e "${G}Install APK: $tpath${NC}"; else echo -e "${G}Installing APK: $tpath${NC}"; fi
+termux-open "$tpath" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
+pm install -r "$tpath" >/dev/null 2>&1
+sleep 1
+else
 nano "$tpath"
+fi
 fi
 else
 if [ "$SELECTED" = "id" ]; then echo -e "${R}Nomor tidak ada${NC}"; else echo -e "${R}Number not found${NC}"; fi
@@ -298,7 +382,14 @@ if [ -e "$tpath" ]; then
 if [ -d "$tpath" ]; then
 CUR_DIR="$tpath"
 else
+if echo "$tpath" | grep -qi "\.apk$"; then
+termux-open "$tpath" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
+pm install -r "$tpath" >/dev/null 2>&1
+sleep 1
+else
 nano "$tpath"
+fi
 fi
 else
 found=$(printf "%s\n" "${ENTRIES[@]}" | grep -i "^${finp_trim}$" | head -n 1)
@@ -307,7 +398,14 @@ tpath="$CUR_DIR/$found"
 if [ -d "$tpath" ]; then
 CUR_DIR="$tpath"
 else
+if echo "$tpath" | grep -qi "\.apk$"; then
+termux-open "$tpath" >/dev/null 2>&1
+am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
+pm install -r "$tpath" >/dev/null 2>&1
+sleep 1
+else
 nano "$tpath"
+fi
 fi
 else
 if [ "$SELECTED" = "id" ]; then echo -e "${R}File/folder tidak ditemukan: $finp_trim${NC}"; else echo -e "${R}File/folder not found: $finp_trim${NC}"; fi
@@ -539,7 +637,6 @@ echo -e "${G}[$(date +%T)] ALL IN ONE: $BOOST_POWER | $COOLER_INFO${NC}"
 echo -e "${W}>> $TXT_TEKAN <<${NC}"
 if read -t 2; then
 clear
-echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"
 safe_set global private_dns_mode opportunistic
 safe_set system pointer_speed 3
 safe_set secure long_press_timeout 400
@@ -547,23 +644,26 @@ safe_set system min_refresh_rate 60
 if command -v termux-notification-remove >/dev/null 2>&1; then
 termux-notification-remove tool_up >/dev/null 2>&1
 fi
-echo -e "${Y}Mematikan wakelock...${NC}"
-for i in 1 2 3 4 5; do
+if command -v termux-notification >/dev/null 2>&1; then
+while true; do
 termux-wake-unlock 2>/dev/null
-sleep 0.3
+termux-notification --id wakelock_off --title "Wakelock" --content "Mematikan wakelock..." --ongoing --priority low >/dev/null 2>&1
+if read -t 1; then
+termux-notification-remove wakelock_off 2>/dev/null
+break
+fi
 done
-j=0
-while [ $j -lt 10 ]; do
+else
+for i in 1 2 3 4 5; do termux-wake-unlock 2>/dev/null; sleep 0.3; done
+fi
 termux-wake-unlock 2>/dev/null
-if [ "$SELECTED" = "id" ]; then echo -e "${W}Loop wakelock off ${j}/10 - tekan ENTER jika sudah mati${NC}"; else echo -e "${W}Loop wakelock off ${j}/10 - press ENTER if off${NC}"; fi
-if read -t 1; then break; fi
-j=$((j+1))
-done
-termux-wake-unlock 2>/dev/null
+termux-notification-remove wakelock_off 2>/dev/null
 break
 fi
 done
 termux-wake-unlock 2>/dev/null
+termux-notification-remove tool_up 2>/dev/null
+termux-notification-remove wakelock_off 2>/dev/null
 }
 do_update(){
 clear
@@ -616,8 +716,9 @@ roblox_lobby
 clear
 run_antilag
 clear
-echo -e "${G}Antilag selesai, kembali ke menu utama...${NC}"
-for k in 1 2 3; do termux-wake-unlock 2>/dev/null; sleep 0.2; done
+if [ "$SELECTED" = "id" ]; then echo -e "${G}Antilag selesai, kembali ke menu utama...${NC}"; else echo -e "${G}Antilag finished, back to main menu...${NC}"; fi
+sleep 0.5
+clear
 show_cmd
 ;;
 "as fileman")
@@ -656,7 +757,7 @@ show_cmd
 ;;
 "exit"|"exit in this tool"|"quit"|"q")
 if [ "$SELECTED" = "id" ]; then echo -e "${Y}Keluar...${NC}"; else echo -e "${Y}Exiting...${NC}"; fi
-for w in 1 2 3; do termux-wake-unlock 2>/dev/null; sleep 0.2; done
+for w in 1 2 3; do termux-wake-unlock 2>/dev/null; termux-notification-remove wakelock_off 2>/dev/null; termux-notification-remove tool_up 2>/dev/null; sleep 0.2; done
 exit 0
 ;;
 *)
