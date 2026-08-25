@@ -123,7 +123,6 @@ roblox_join_by_id() {
     fi
     termux-open-url "$link" >/dev/null 2>&1
     am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
-    am start -a android.intent.action.VIEW -d "roblox://placeId=$id" >/dev/null 2>&1
 }
 
 save_rbx() {
@@ -135,20 +134,12 @@ save_rbx() {
     grep -v "^${name}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp" || true
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null || true
     echo "${name}|${id}" >> "$SAVE_FILE"
-    if [ "$SELECTED" = "id" ]; then
-        echo -e "${G}Disimpan: $name -> $id${NC}"
-    else
-        echo -e "${G}Saved: $name -> $id${NC}"
-    fi
+    echo -e "${G}Disimpan: $name -> $id${NC}"
 }
 
 list_rbx() {
     if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
-        if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}Belum ada save-an. Gunakan: save <name> <id>${NC}"
-        else
-            echo -e "${Y}No saves yet. Use: save <name> <id>${NC}"
-        fi
+        echo -e "${Y}Belum ada save-an${NC}"
         return 1
     fi
     local i=1
@@ -162,7 +153,6 @@ list_rbx() {
 
 get_rbx_by_num() {
     local num="$1"
-    [ -z "$num" ] && return 1
     local line=$(sed -n "${num}p" "$SAVE_FILE" 2>/dev/null)
     [ -z "$line" ] && return 1
     echo "$line" | cut -d'|' -f2
@@ -170,19 +160,12 @@ get_rbx_by_num() {
 
 get_rbx_by_name() {
     local sname="$1"
-    [ -z "$sname" ] && return 1
     sname=$(echo "$sname" | sed 's/ /_/g')
     grep -i "^${sname}|" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2
 }
 
-delete_rbx_by_num() {
-    local num="$1"
-    sed -i "${num}d" "$SAVE_FILE" 2>/dev/null
-}
-
 delete_rbx_by_name() {
-    local sname="$1"
-    sname=$(echo "$sname" | sed 's/ /_/g')
+    local sname=$(echo "$1" | sed 's/ /_/g')
     grep -v -i "^${sname}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp"
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null
 }
@@ -194,16 +177,14 @@ exploit_lobby() {
         echo -e "${W}command rahasia - tidak ditampilkan di Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}exp search <keyword>${NC} - cari script di ScriptBlox"
-        echo -e "${G}exp exeup${NC}              - info update executor official"
-        echo -e "${G}exit${NC}                  - kembali ke Roblox lobby"
+        echo -e "${G}exit${NC}                 - kembali ke Roblox lobby"
         echo -e "${W}------------------------------${NC}"
     else
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}hidden command - not shown in Roblox lobby list${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}exp search <keyword>${NC} - search script on ScriptBlox"
-        echo -e "${G}exp exeup${NC}              - official executor update info"
-        echo -e "${G}exit${NC}                  - back to Roblox lobby"
+        echo -e "${G}exit${NC}                 - back to Roblox lobby"
         echo -e "${W}------------------------------${NC}"
     fi
 
@@ -219,7 +200,6 @@ exploit_lobby() {
                 if [ -z "$earg" ]; then
                     if [ "$SELECTED" = "id" ]; then
                         echo -e "${Y}Contoh: exp search speed hub x${NC}"
-                        echo -e "${Y}Contoh: exp search blox fruit${NC}"
                     else
                         echo -e "${Y}Example: exp search speed hub x${NC}"
                     fi
@@ -240,69 +220,41 @@ exploit_lobby() {
                 fi
                 ;;
 
-            exp\ exeup )
+            exit|quit|q|keluar)
                 clear
                 if [ "$SELECTED" = "id" ]; then
-                    echo -e "${C}=== INFO UPDATE EXECUTOR OFFICIAL ===${NC}"
-                    echo -e "${W}Sumber: link official executor${NC}"
+                    echo -e "${C}Roblox lobby${NC}"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${B}[ANDROID]${NC}"
-                    echo -e "${W}delta    : 2.735  - Official: https://deltaexploits.gg/${NC}"
-                    echo -e "${W}codex    : 1.45.2 - Official: https://codex.lol/${NC}"
-                    echo -e "${W}arceus x : 1.4.8  - Official: https://www.arceusx.com/${NC}"
-                    echo -e "${W}fluxus   : 2.623  - Official: https://fluxus.team/${NC}"
-                    echo -e "${W}krnl     : 2.584  - Official: https://krnl.place/${NC}"
-                    echo -e ""
-                    echo -e "${B}[IOS]${NC}"
-                    echo -e "${W}delta ios    : 2.735 - Official: https://deltaexploits.gg/ios${NC}"
-                    echo -e "${W}codex ios    : 1.45.0${NC}"
-                    echo -e "${W}arceus x ios : 1.4.6${NC}"
-                    echo -e ""
-                    echo -e "${B}[VNG / VIETNAM]${NC}"
-                    echo -e "${W}delta vng : 2.735 - Official: https://deltaexploits.gg/vng${NC}"
-                    echo -e "${W}codex vng : 1.45.2${NC}"
-                    echo -e ""
-                    echo -e "${B}[PC - WINDOWS]${NC}"
-                    echo -e "${W}synapse x  : 3.0.8 - Official: https://x.synapse.to/${NC}"
-                    echo -e "${W}krnl pc    : 2.584${NC}"
-                    echo -e "${W}fluxus pc  : 2.623${NC}"
-                    echo -e "${W}electron   : 2.71  - Official: https://getelectron.pro/${NC}"
+                    echo -e "${W}command${NC}"
+                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
+                    echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
+                    echo -e "${G}save <name> <id> / rbx save${NC} - simpan map"
+                    echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
+                    echo -e "${G}rmls / rbx rmls${NC} - hapus save"
+                    echo -e "${G}exit${NC} - keluar dari Roblox lobby"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${Y}Catatan: versi diambil dari link official, bukan ScriptBlox${NC}"
                 else
-                    echo -e "${C}=== OFFICIAL EXECUTOR UPDATE INFO ===${NC}"
-                    echo -e "${W}Source: official executor links${NC}"
+                    echo -e "${C}Roblox lobby${NC}"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${B}[ANDROID]${NC}"
-                    echo -e "${W}delta    : 2.735  - Official: https://deltaexploits.gg/${NC}"
-                    echo -e "${W}codex    : 1.45.2 - Official: https://codex.lol/${NC}"
-                    echo -e "${W}arceus x : 1.4.8  - Official: https://www.arceusx.com/${NC}"
-                    echo -e "${W}fluxus   : 2.623  - Official: https://fluxus.team/${NC}"
-                    echo -e "${W}krnl     : 2.584  - Official: https://krnl.place/${NC}"
-                    echo -e ""
-                    echo -e "${B}[IOS]${NC}"
-                    echo -e "${W}delta ios    : 2.735${NC}"
-                    echo -e "${W}codex ios    : 1.45.0${NC}"
-                    echo -e ""
-                    echo -e "${B}[VNG / VIETNAM]${NC}"
-                    echo -e "${W}delta vng : 2.735${NC}"
-                    echo -e ""
-                    echo -e "${B}[PC - WINDOWS]${NC}"
-                    echo -e "${W}synapse x : 3.0.8 - Official: https://x.synapse.to/${NC}"
-                    echo -e "${W}electron  : 2.71${NC}"
+                    echo -e "${W}command${NC}"
+                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map"
+                    echo -e "${G}save / rbx save${NC} - save map"
+                    echo -e "${G}listjoin / rbx listjoin${NC} - join from save"
+                    echo -e "${G}rmls / rbx rmls${NC} - delete save"
+                    echo -e "${G}exit${NC} - exit"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${Y}Note: versions from official links, not ScriptBlox${NC}"
                 fi
+                break
                 ;;
 
-            exit|quit|q|back|00)
+            00)
                 clear
                 if [ "$SELECTED" = "id" ]; then
                     echo -e "${C}Roblox lobby${NC}"
                     echo -e "${W}------------------------------${NC}"
                     echo -e "${G}playgame <id> / rbx playgame${NC} - join map"
                     echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
-                    echo -e "${G}rmls / rbx rmls${NC} - hapus save"
+                    echo -e "${G}exit${NC} - keluar"
                     echo -e "${W}------------------------------${NC}"
                 else
                     echo -e "${C}Roblox lobby${NC}"
@@ -316,9 +268,9 @@ exploit_lobby() {
 
             *)
                 if [ "$SELECTED" = "id" ]; then
-                    echo -e "${Y}Command tidak dikenal. Gunakan: exp search <keyword> / exp exeup / exit${NC}"
+                    echo -e "${Y}Command tidak dikenal. Gunakan: exp search <keyword> / exit${NC}"
                 else
-                    echo -e "${Y}Unknown command. Use: exp search <keyword> / exp exeup / exit${NC}"
+                    echo -e "${Y}Unknown command. Use: exp search <keyword> / exit${NC}"
                 fi
                 ;;
         esac
@@ -331,11 +283,11 @@ roblox_lobby() {
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
-        echo -e "${G}playgame <id> / rbx playgame <id>${NC} - langsung masuk ke map (auto cari server tidak penuh)"
-        echo -e "${G}playersearch <id> / rbx playersearch${NC} - cari player"
+        echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
+        echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
         echo -e "${G}save <name> <id> / rbx save${NC} - simpan map (spasi jadi _)"
-        echo -e "${G}listjoin [name/angka] / rbx listjoin${NC} - join dari save pakai nomor"
-        echo -e "${G}rmls [name/angka] / rbx rmls${NC} - hapus save dari database"
+        echo -e "${G}listjoin / rbx listjoin${NC} - join dari save pakai nomor"
+        echo -e "${G}rmls / rbx rmls${NC} - hapus save dari database"
         echo -e "${G}exit${NC} - keluar dari Roblox lobby"
         echo -e "${W}------------------------------${NC}"
     else
@@ -343,8 +295,7 @@ roblox_lobby() {
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto find non-full server)"
-        echo -e "${G}playersearch / rbx playersearch${NC} - search player"
-        echo -e "${G}save <name> <id> / rbx save${NC} - save map (space to _)"
+        echo -e "${G}save / rbx save${NC} - save map"
         echo -e "${G}listjoin / rbx listjoin${NC} - join from save"
         echo -e "${G}rmls / rbx rmls${NC} - delete save"
         echo -e "${G}exit${NC} - exit"
@@ -365,7 +316,7 @@ roblox_lobby() {
                 fi
                 if [ -z "$rid" ] || ! echo "$rid" | grep -Eq '^[0-9]+$'; then
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Contoh: playgame 2753915549 atau rbx playgame 2753915549${NC}"
+                        echo -e "${Y}Contoh: playgame 2753915549${NC}"
                     else
                         echo -e "${Y}Example: playgame 2753915549${NC}"
                     fi
@@ -387,37 +338,18 @@ roblox_lobby() {
             rbx\ save* | save* )
                 save_args=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?save[ ]+//I' | xargs)
                 if [ -z "$save_args" ]; then
-                    if [ "$SELECTED" = "id" ]; then
-                        read -p "Masukkan nama save: " sname_in
-                        read -p "Masukkan ID map: " sid_in
-                    else
-                        read -p "Enter save name: " sname_in
-                        read -p "Enter map ID: " sid_in
-                    fi
-                    sname_in=$(echo "$sname_in" | xargs)
-                    sid_in=$(echo "$sid_in" | xargs)
-                    if [ -n "$sname_in" ] && [ -n "$sid_in" ]; then
-                        save_rbx "$sname_in" "$sid_in"
-                    fi
+                    read -p "Masukkan nama save: " sname_in
+                    read -p "Masukkan ID map: " sid_in
+                    save_rbx "$sname_in" "$sid_in"
                     continue
                 fi
                 sid=$(echo "$save_args" | awk '{print $NF}')
                 if ! echo "$sid" | grep -Eq '^[0-9]+$'; then
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}ID harus angka, masukkan manual:${NC}"
-                        read -p "Masukkan nama save: " sname_in
-                        read -p "Masukkan ID map: " sid_in
-                    else
-                        echo -e "${Y}ID must be number, enter manually:${NC}"
-                        read -p "Enter save name: " sname_in
-                        read -p "Enter map ID: " sid_in
-                    fi
+                    read -p "Masukkan nama save: " sname_in
+                    read -p "Masukkan ID map: " sid_in
                     save_rbx "$sname_in" "$sid_in"
                 else
                     sname=$(echo "$save_args" | rev | cut -d' ' -f2- | rev | xargs)
-                    if [ -z "$sname" ]; then
-                        read -p "Masukkan nama save: " sname
-                    fi
                     save_rbx "$sname" "$sid"
                 fi
                 ;;
@@ -425,43 +357,22 @@ roblox_lobby() {
             rbx\ listjoin* | listjoin* )
                 arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?listjoin[ ]*//I' | xargs)
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Belum ada save-an${NC}"
-                    else
-                        echo -e "${Y}No saves${NC}"
-                    fi
+                    echo -e "${Y}Belum ada save-an${NC}"
                     continue
                 fi
                 if [ -z "$arg" ]; then
                     list_rbx
                     echo ""
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${C}Taro angka di input ini untuk join game${NC}"
-                        read -p "Masukkan angka save: " num
-                    else
-                        echo -e "${C}Put number in this input to join game${NC}"
-                        read -p "Enter save number: " num
-                    fi
+                    read -p "Masukkan angka save: " num
                     join_id=$(get_rbx_by_num "$num")
-                    if [ -z "$join_id" ]; then
-                        echo -e "${R}Nomor tidak ditemukan${NC}"
-                    else
-                        roblox_join_by_id "$join_id"
-                    fi
+                    [ -z "$join_id" ] && echo -e "${R}Nomor tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                 else
                     if echo "$arg" | grep -Eq '^[0-9]+$'; then
                         join_id=$(get_rbx_by_num "$arg")
                     else
                         join_id=$(get_rbx_by_name "$arg")
-                        if [ -z "$join_id" ]; then
-                            join_id=$(grep -i "$arg" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2)
-                        fi
                     fi
-                    if [ -z "$join_id" ]; then
-                        echo -e "${R}Save tidak ditemukan: $arg${NC}"
-                    else
-                        roblox_join_by_id "$join_id"
-                    fi
+                    [ -z "$join_id" ] && echo -e "${R}Save tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                 fi
                 ;;
 
@@ -474,34 +385,18 @@ roblox_lobby() {
                 if [ -z "$arg" ]; then
                     list_rbx
                     echo ""
-                    if [ "$SELECTED" = "id" ]; then
-                        read -p "Masukkan angka yang mau dihapus: " delnum
-                    else
-                        read -p "Enter number to delete: " delnum
-                    fi
+                    read -p "Masukkan angka yang mau dihapus: " delnum
                     if echo "$delnum" | grep -Eq '^[0-9]+$'; then
                         sed -i "${delnum}d" "$SAVE_FILE"
-                        if [ "$SELECTED" = "id" ]; then
-                            echo -e "${G}Dihapus nomor $delnum${NC}"
-                        else
-                            echo -e "${G}Deleted number $delnum${NC}"
-                        fi
+                        echo -e "${G}Dihapus nomor $delnum${NC}"
                     fi
                 else
                     if echo "$arg" | grep -Eq '^[0-9]+$'; then
                         sed -i "${arg}d" "$SAVE_FILE"
-                        if [ "$SELECTED" = "id" ]; then
-                            echo -e "${G}Dihapus nomor $arg${NC}"
-                        else
-                            echo -e "${G}Deleted number $arg${NC}"
-                        fi
+                        echo -e "${G}Dihapus nomor $arg${NC}"
                     else
                         delete_rbx_by_name "$arg"
-                        if [ "$SELECTED" = "id" ]; then
-                            echo -e "${G}Dihapus: $arg${NC}"
-                        else
-                            echo -e "${G}Deleted: $arg${NC}"
-                        fi
+                        echo -e "${G}Dihapus: $arg${NC}"
                     fi
                 fi
                 ;;
@@ -517,11 +412,7 @@ roblox_lobby() {
                 ;;
 
             *)
-                if [ "$SELECTED" = "id" ]; then
-                    echo -e "${Y}Command tidak dikenal di Roblox lobby${NC}"
-                else
-                    echo -e "${Y}Unknown command in Roblox lobby${NC}"
-                fi
+                echo -e "${Y}Command tidak dikenal di Roblox lobby${NC}"
                 ;;
         esac
     done
@@ -529,20 +420,10 @@ roblox_lobby() {
 
 run_fileman() {
     if [ ! -d "$HOME/storage" ]; then
-        if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}File Manager butuh izin akses storage...${NC}"
-        else
-            echo -e "${Y}File Manager needs storage permission...${NC}"
-        fi
         termux-setup-storage
         sleep 2
-        echo -e "${G}Silakan izinkan akses file di popup Android, lalu tekan ENTER${NC}"
-        read -p "> "
     fi
-
-    if ! command -v nano >/dev/null 2>&1; then
-        pkg install -y nano >/dev/null 2>&1
-    fi
+    command -v nano >/dev/null 2>&1 || pkg install -y nano >/dev/null 2>&1
 
     CUR_DIR="/sdcard"
     [ ! -d "$CUR_DIR" ] && CUR_DIR="$HOME"
@@ -551,7 +432,9 @@ run_fileman() {
         clear
         echo -e "${C}File Manager - $CUR_DIR${NC}"
         echo -e "${W}------------------------------${NC}"
-        mapfile -t ENTRIES < <(ls -A "$CUR_DIR" 2>/dev/null)
+
+        # Hanya file yang tidak tersembunyi - hidden file tetap tersembunyi
+        mapfile -t ENTRIES < <(ls "$CUR_DIR" 2>/dev/null)
 
         if [ ${#ENTRIES[@]} -eq 0 ]; then
             echo -e "${Y}Folder kosong${NC}"
@@ -570,12 +453,10 @@ run_fileman() {
         echo -e "${W}------------------------------${NC}"
         if [ "$SELECTED" = "id" ]; then
             echo -e "${Y}Ketik angka 1-infinite untuk masuk folder${NC}"
-            echo -e "${Y}Ketik nama file untuk edit via nano${NC}"
-            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar${NC}"
+            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar (hidden file tetap tersembunyi)${NC}"
         else
             echo -e "${Y}Type number 1-infinite to enter folder${NC}"
-            echo -e "${Y}Type filename to edit via nano${NC}"
-            echo -e "${Y}Type 00 to go back, 0 to exit${NC}"
+            echo -e "${Y}Type 00 to go back, 0 to exit (hidden files stay hidden)${NC}"
         fi
         echo ""
 
@@ -611,21 +492,6 @@ run_fileman() {
                     if echo "$tpath" | grep -qi "\.apk$"; then
                         termux-open "$tpath" >/dev/null 2>&1
                         am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
-                        pm install -r "$tpath" >/dev/null 2>&1
-                    else
-                        nano "$tpath"
-                    fi
-                fi
-            fi
-        else
-            tpath="$CUR_DIR/$finp_trim"
-            if [ -e "$tpath" ]; then
-                if [ -d "$tpath" ]; then
-                    CUR_DIR="$tpath"
-                else
-                    if echo "$tpath" | grep -qi "\.apk$"; then
-                        termux-open "$tpath" >/dev/null 2>&1
-                        am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
                     else
                         nano "$tpath"
                     fi
@@ -642,7 +508,6 @@ run_antilag() {
     else
         echo -e "${C}Running latest boost-performance tool...${NC}"
     fi
-    echo -e "${W}------------------------------${NC}"
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
     pkg update -y
@@ -654,19 +519,13 @@ run_antilag() {
     bash command.sh
     bash main-engine.sh
     cd ~
-    if [ "$SELECTED" = "id" ]; then
-        echo -e "${G}Selesai, kembali ke menu utama...${NC}"
-    else
-        echo -e "${G}Finished, back to main menu...${NC}"
-    fi
+    echo -e "${G}Selesai, kembali ke menu utama...${NC}"
     sleep 1
     clear
 }
 
 do_update() {
     clear
-    echo -e "${Y}Exiting assistant for update...${NC}"
-    sleep 1
     cd ~
     rm -rf Termux-tool-library
     rm -rf boost-game
@@ -702,83 +561,25 @@ while true; do
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
 
     case "$full" in
-        "as update")
-            do_update
-            ;;
-
-        "as roblox"|"roblox"|"rbx")
-            roblox_lobby
-            ;;
-
-        "as antilag")
-            run_antilag
-            show_cmd
-            ;;
-
-        "as fileman")
-            run_fileman
-            ;;
-
+        "as update") do_update ;;
+        "as roblox"|"roblox"|"rbx") roblox_lobby ;;
+        "as antilag") run_antilag; show_cmd ;;
+        "as fileman") run_fileman ;;
         as\ lang* )
             if [ -z "$lang_arg" ]; then
-                if [ "$SELECTED" = "id" ]; then
-                    echo -e "${Y}Contoh: as lang id / as lang indonesia${NC}"
-                else
-                    echo -e "${Y}Example: as lang id / as lang indonesia${NC}"
-                fi
+                echo -e "${Y}Contoh: as lang id${NC}"
                 continue
             fi
             larg=$(norm "$lang_arg")
             case "$larg" in
-                1|2)
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${R}Angka tidak bisa, pakai id/en atau nama bahasa saja${NC}"
-                    else
-                        echo -e "${R}Numbers not allowed, use id/en or language name only${NC}"
-                    fi
-                    ;;
-                id|indonesia|indo)
-                    SELECTED="id"
-                    echo "$SELECTED" > "$LANG_FILE"
-                    show_sel
-                    show_cmd
-                    ;;
-                en|english|inggris|eng)
-                    SELECTED="en"
-                    echo "$SELECTED" > "$LANG_FILE"
-                    show_sel
-                    show_cmd
-                    ;;
-                *)
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${R}Bahasa tidak dikenal. Pakai: id, en, indonesia, english${NC}"
-                    else
-                        echo -e "${R}Unknown language. Use: id, en, indonesia, english${NC}"
-                    fi
-                    ;;
+                1|2) echo -e "${R}Angka tidak bisa${NC}" ;;
+                id|indonesia|indo) SELECTED="id"; echo "$SELECTED" > "$LANG_FILE"; show_sel; show_cmd ;;
+                en|english|inggris|eng) SELECTED="en"; echo "$SELECTED" > "$LANG_FILE"; show_sel; show_cmd ;;
+                *) echo -e "${R}Bahasa tidak dikenal${NC}" ;;
             esac
             ;;
-
-        "as help"|"help")
-            clear
-            show_cmd
-            ;;
-
-        "exit"|"quit"|"q")
-            if [ "$SELECTED" = "id" ]; then
-                echo -e "${Y}Keluar...${NC}"
-            else
-                echo -e "${Y}Exiting...${NC}"
-            fi
-            exit 0
-            ;;
-
-        *)
-            if [ "$SELECTED" = "id" ]; then
-                echo -e "${Y}Perintah tidak dikenal, ketik as help${NC}"
-            else
-                echo -e "${Y}Unknown command, type as help${NC}"
-            fi
-            ;;
+        "as help"|"help") clear; show_cmd ;;
+        "exit"|"quit"|"q") exit 0 ;;
+        *) echo -e "${Y}Perintah tidak dikenal${NC}" ;;
     esac
 done
