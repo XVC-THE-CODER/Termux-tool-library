@@ -220,40 +220,14 @@ exploit_lobby() {
                 fi
                 ;;
 
-            exit|quit|q|keluar)
+            exit|quit|q|keluar|00)
                 clear
                 if [ "$SELECTED" = "id" ]; then
                     echo -e "${C}Roblox lobby${NC}"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${W}command${NC}"
-                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
-                    echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
-                    echo -e "${G}save <name> <id> / rbx save${NC} - simpan map"
+                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map"
                     echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
                     echo -e "${G}rmls / rbx rmls${NC} - hapus save"
-                    echo -e "${G}exit${NC} - keluar dari Roblox lobby"
-                    echo -e "${W}------------------------------${NC}"
-                else
-                    echo -e "${C}Roblox lobby${NC}"
-                    echo -e "${W}------------------------------${NC}"
-                    echo -e "${W}command${NC}"
-                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map"
-                    echo -e "${G}save / rbx save${NC} - save map"
-                    echo -e "${G}listjoin / rbx listjoin${NC} - join from save"
-                    echo -e "${G}rmls / rbx rmls${NC} - delete save"
-                    echo -e "${G}exit${NC} - exit"
-                    echo -e "${W}------------------------------${NC}"
-                fi
-                break
-                ;;
-
-            00)
-                clear
-                if [ "$SELECTED" = "id" ]; then
-                    echo -e "${C}Roblox lobby${NC}"
-                    echo -e "${W}------------------------------${NC}"
-                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map"
-                    echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
                     echo -e "${G}exit${NC} - keluar"
                     echo -e "${W}------------------------------${NC}"
                 else
@@ -282,23 +256,19 @@ roblox_lobby() {
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
-        echo -e "${W}command${NC}"
         echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
         echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
-        echo -e "${G}save <name> <id> / rbx save${NC} - simpan map (spasi jadi _)"
-        echo -e "${G}listjoin / rbx listjoin${NC} - join dari save pakai nomor"
-        echo -e "${G}rmls / rbx rmls${NC} - hapus save dari database"
-        echo -e "${G}exit${NC} - keluar dari Roblox lobby"
+        echo -e "${G}save <name> <id> / rbx save${NC} - simpan map"
+        echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
+        echo -e "${G}rmls / rbx rmls${NC} - hapus save"
+        echo -e "${G}exit${NC} - keluar"
         echo -e "${W}------------------------------${NC}"
     else
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
-        echo -e "${W}command${NC}"
-        echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto find non-full server)"
-        echo -e "${G}save / rbx save${NC} - save map"
-        echo -e "${G}listjoin / rbx listjoin${NC} - join from save"
-        echo -e "${G}rmls / rbx rmls${NC} - delete save"
-        echo -e "${G}exit${NC} - exit"
+        echo -e "${G}playgame <id>${NC} - join map"
+        echo -e "${G}listjoin${NC} - join from save"
+        echo -e "${G}rmls${NC} - delete save"
         echo -e "${W}------------------------------${NC}"
     fi
 
@@ -315,11 +285,7 @@ roblox_lobby() {
                     rid=$(echo "$rcmd" | awk '{print $3}')
                 fi
                 if [ -z "$rid" ] || ! echo "$rid" | grep -Eq '^[0-9]+$'; then
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Contoh: playgame 2753915549${NC}"
-                    else
-                        echo -e "${Y}Example: playgame 2753915549${NC}"
-                    fi
+                    echo -e "${Y}Contoh: playgame 2753915549${NC}"
                 else
                     roblox_join_by_id "$rid"
                 fi
@@ -327,12 +293,8 @@ roblox_lobby() {
 
             rbx\ playersearch* | playersearch* )
                 rid=$(echo "$rcmd" | awk '{print $NF}')
-                if [ -z "$rid" ]; then
-                    echo -e "${Y}Contoh: playersearch 123456${NC}"
-                else
-                    termux-open-url "${ROBLOX_PLAYER_URL}${rid}/profile" >/dev/null 2>&1
-                    am start -a android.intent.action.VIEW -d "${ROBLOX_PLAYER_DEEP}${rid}" >/dev/null 2>&1
-                fi
+                termux-open-url "${ROBLOX_PLAYER_URL}${rid}/profile" >/dev/null 2>&1
+                am start -a android.intent.action.VIEW -d "${ROBLOX_PLAYER_DEEP}${rid}" >/dev/null 2>&1
                 ;;
 
             rbx\ save* | save* )
@@ -412,7 +374,7 @@ roblox_lobby() {
                 ;;
 
             *)
-                echo -e "${Y}Command tidak dikenal di Roblox lobby${NC}"
+                echo -e "${Y}Command tidak dikenal${NC}"
                 ;;
         esac
     done
@@ -433,7 +395,7 @@ run_fileman() {
         echo -e "${C}File Manager - $CUR_DIR${NC}"
         echo -e "${W}------------------------------${NC}"
 
-        # Hanya file yang tidak tersembunyi - hidden file tetap tersembunyi
+        # Hidden file tetap tersembunyi - tidak pakai -A
         mapfile -t ENTRIES < <(ls "$CUR_DIR" 2>/dev/null)
 
         if [ ${#ENTRIES[@]} -eq 0 ]; then
@@ -452,11 +414,11 @@ run_fileman() {
 
         echo -e "${W}------------------------------${NC}"
         if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}Ketik angka 1-infinite untuk masuk folder${NC}"
-            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar (hidden file tetap tersembunyi)${NC}"
+            echo -e "${Y}Ketik angka 1-infinite untuk pilih file/folder${NC}"
+            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar (hidden tetap tersembunyi)${NC}"
         else
-            echo -e "${Y}Type number 1-infinite to enter folder${NC}"
-            echo -e "${Y}Type 00 to go back, 0 to exit (hidden files stay hidden)${NC}"
+            echo -e "${Y}Type number 1-infinite to select file/folder${NC}"
+            echo -e "${Y}Type 00 to go back, 0 to exit (hidden stays hidden)${NC}"
         fi
         echo ""
 
@@ -486,15 +448,81 @@ run_fileman() {
             if [ "$num" -ge 1 ] && [ "$num" -le ${#ENTRIES[@]} ]; then
                 sel="${ENTRIES[$((num-1))]}"
                 tpath="$CUR_DIR/$sel"
+
                 if [ -d "$tpath" ]; then
                     CUR_DIR="$tpath"
                 else
-                    if echo "$tpath" | grep -qi "\.apk$"; then
-                        termux-open "$tpath" >/dev/null 2>&1
-                        am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
-                    else
-                        nano "$tpath"
-                    fi
+                    # File dipilih - tampilkan pilihan 1. open 2. delete 3. dupe 0. cancel
+                    while true; do
+                        clear
+                        echo -e "${C}File: $sel${NC}"
+                        echo -e "${W}Path: $tpath${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                        if [ "$SELECTED" = "id" ]; then
+                            echo -e "${W}1. buka${NC}"
+                            echo -e "${W}2. hapus${NC}"
+                            echo -e "${W}3. duplikat${NC}"
+                            echo -e "${W}0. batal${NC}"
+                        else
+                            echo -e "${W}1. open${NC}"
+                            echo -e "${W}2. delete${NC}"
+                            echo -e "${W}3. dupe${NC}"
+                            echo -e "${W}0. cancel${NC}"
+                        fi
+                        echo -e "${W}------------------------------${NC}"
+                        read -p "Pilih> " opt
+                        opt=$(echo "$opt" | xargs)
+
+                        case "$opt" in
+                            1)
+                                if echo "$tpath" | grep -qi "\.apk$"; then
+                                    termux-open "$tpath" >/dev/null 2>&1
+                                    am start -a android.intent.action.VIEW -d "file://$tpath" -t "application/vnd.android.package-archive" >/dev/null 2>&1
+                                else
+                                    nano "$tpath"
+                                fi
+                                break
+                                ;;
+                            2)
+                                if [ "$SELECTED" = "id" ]; then
+                                    read -p "Yakin hapus $sel? (y/n): " conf
+                                else
+                                    read -p "Delete $sel? (y/n): " conf
+                                fi
+                                if [ "$conf" = "y" ] || [ "$conf" = "Y" ]; then
+                                    rm -rf "$tpath"
+                                    echo -e "${G}Dihapus${NC}"
+                                    sleep 1
+                                fi
+                                break
+                                ;;
+                            3)
+                                base=$(basename "$tpath")
+                                dir=$(dirname "$tpath")
+                                ext="${base##*.}"
+                                name="${base%.*}"
+                                if [ "$name" = "$ext" ]; then
+                                    cp "$tpath" "$dir/${base}_copy"
+                                else
+                                    cp "$tpath" "$dir/${name}_copy.${ext}" 2>/dev/null || cp "$tpath" "$dir/${base}_copy"
+                                fi
+                                if [ "$SELECTED" = "id" ]; then
+                                    echo -e "${G}Duplikat berhasil${NC}"
+                                else
+                                    echo -e "${G}Duplicated${NC}"
+                                fi
+                                sleep 1
+                                break
+                                ;;
+                            0)
+                                break
+                                ;;
+                            *)
+                                echo -e "${Y}Pilihan tidak valid${NC}"
+                                sleep 1
+                                ;;
+                        esac
+                    done
                 fi
             fi
         fi
@@ -503,11 +531,7 @@ run_fileman() {
 
 run_antilag() {
     clear
-    if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
-    else
-        echo -e "${C}Running latest boost-performance tool...${NC}"
-    fi
+    echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
     pkg update -y
