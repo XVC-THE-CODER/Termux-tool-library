@@ -1,5 +1,4 @@
 #!/data/data/com.termux/files/usr/bin/bash
-
 R='\033[1;31m'
 G='\033[1;32m'
 Y='\033[1;33m'
@@ -7,22 +6,17 @@ B='\033[1;34m'
 C='\033[1;36m'
 W='\033[1;37m'
 NC='\033[0m'
-
 LANG_FILE="$HOME/.as_lang"
 SAVE_FILE="$HOME/.rbx_saves"
 SELECTED=""
-
 ROBLOX_PLAYER_URL="https://www.roblox.com/users/"
 ROBLOX_PLAYER_DEEP="roblox://users/"
-
 norm() {
     echo "$1" | tr '[:upper:]' '[:lower:]' | xargs
 }
-
 gen_uuid() {
     cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "cfed5fc6-80be-4d6f-ac0a-d95126cf2b39"
 }
-
 choose_lang() {
     clear
     echo -e "${C}================================${NC}"
@@ -41,7 +35,6 @@ choose_lang() {
     esac
     echo "$SELECTED" > "$LANG_FILE"
 }
-
 show_sel() {
     clear
     if [ "$SELECTED" = "id" ]; then
@@ -52,7 +45,6 @@ show_sel() {
     sleep 1
     clear
 }
-
 show_cmd() {
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}command assistant${NC}"
@@ -76,8 +68,6 @@ show_cmd() {
         echo -e "${W}------------------------------${NC}"
     fi
 }
-
-# Bentuk Roblox lobby mirip v16 - HANYA tampil rbx, instant tanpa rbx tetap ada tapi tidak ditampilkan
 show_roblox_lobby_v16() {
     clear
     if [ "$SELECTED" = "id" ]; then
@@ -106,40 +96,40 @@ show_roblox_lobby_v16() {
         echo -e "${W}------------------------------${NC}"
     fi
 }
-
 show_roblox_help() {
     clear
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}=== PANDUAN ROBLOX LOBBY - FULL & SINGKAT ===${NC}"
         echo -e "${W}Bahasa: Indonesia (English translate di dalam kurung)${NC}"
         echo -e "${W}------------------------------${NC}"
-        echo -e "${G}1. rbx playgame <id>${NC} - join map (langsung masuk map)"
-        echo -e "${W}   instant (tanpa rbx, tidak ditampilkan tapi ada): playgame <id>${NC}"
+        echo -e "${G}1. rbx playgame <id>${NC} - join map"
+        echo -e "${W}   instant: playgame <id>${NC}"
         echo -e "${W}   EN: join map directly${NC}"
         echo -e ""
-        echo -e "${G}2. rbx playersearch <id>${NC} - cari player (search player)"
+        echo -e "${G}2. rbx playersearch <id>${NC} - cari player"
         echo -e "${W}   instant: playersearch <id>${NC}"
         echo -e "${W}   EN: find player profile${NC}"
         echo -e ""
-        echo -e "${G}3. rbx save <name> <id>${NC} - simpan map (save map)"
+        echo -e "${G}3. rbx save <name> <id>${NC} - simpan map"
         echo -e "${W}   instant: save <name> <id>${NC}"
         echo -e "${W}   EN: save map to list${NC}"
         echo -e ""
-        echo -e "${G}4. rbx listjoin [name/angka]${NC} - join dari save (join from saved list)"
+        echo -e "${G}4. rbx listjoin [name/angka]${NC} - join dari save"
         echo -e "${W}   instant: listjoin [name/angka]${NC}"
         echo -e "${W}   EN: join from saved${NC}"
         echo -e ""
-        echo -e "${G}5. rbx rmls [name/angka]${NC} - hapus save (delete saved)"
+        echo -e "${G}5. rbx rmls [name/angka]${NC} - hapus save"
         echo -e "${W}   instant: rmls [name/angka]${NC}"
         echo -e "${W}   EN: remove saved map${NC}"
         echo -e ""
-        echo -e "${G}6. help${NC} - panduan ini (this guide)"
+        echo -e "${G}6. help${NC} - panduan ini"
         echo -e "${W}   EN: show full & short usage${NC}"
         echo -e ""
-        echo -e "${G}7. exploit${NC} - rahasia (secret, tidak ditampilkan di list tapi ada)"
+        echo -e "${G}7. exploit${NC} - rahasia"
         echo -e "${W}   EN: secret exploit lobby${NC}"
         echo -e ""
-        echo -e "${G}8. exit${NC} - keluar lobby (exit lobby)"
+        echo -e "${G}8. exit${NC} - keluar lobby"
+        echo -e "${W}   EN: exit lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${Y}Catatan: command tanpa rbx tetap bisa dipakai walau tidak ditampilkan${NC}"
         echo -e "${Y}EN Note: instant commands without rbx still work even if not shown${NC}"
@@ -149,7 +139,7 @@ show_roblox_help() {
         echo -e "${W}Language: English${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}1. rbx playgame <id>${NC} - join map"
-        echo -e "${W}   instant: playgame <id> (hidden but works)${NC}"
+        echo -e "${W}   instant: playgame <id>${NC}"
         echo -e ""
         echo -e "${G}2. rbx playersearch <id>${NC} - find player"
         echo -e "${W}   instant: playersearch <id>${NC}"
@@ -165,7 +155,7 @@ show_roblox_help() {
         echo -e ""
         echo -e "${G}6. help${NC} - this guide"
         echo -e ""
-        echo -e "${G}7. exploit${NC} - secret (hidden from list but exists)"
+        echo -e "${G}7. exploit${NC} - secret"
         echo -e ""
         echo -e "${G}8. exit${NC} - exit lobby"
         echo -e "${W}------------------------------${NC}"
@@ -176,7 +166,6 @@ show_roblox_help() {
     read -p "Tekan ENTER untuk kembali / Press ENTER to back: " _
     show_roblox_lobby_v16
 }
-
 find_available_server() {
     local placeId="$1"
     [ -z "$placeId" ] && echo "" && return
@@ -203,7 +192,6 @@ except:
     fi
     echo "$serverId"
 }
-
 roblox_join_by_id() {
     local id="$1"
     [ -z "$id" ] && return
@@ -224,7 +212,6 @@ roblox_join_by_id() {
     termux-open-url "$link" >/dev/null 2>&1
     am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
 }
-
 save_rbx() {
     local name="$1"
     local id="$2"
@@ -236,7 +223,6 @@ save_rbx() {
     echo "${name}|${id}" >> "$SAVE_FILE"
     echo -e "${G}Disimpan: $name -> $id${NC}"
 }
-
 list_rbx() {
     if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
         echo -e "${Y}Belum ada save-an${NC}"
@@ -250,26 +236,22 @@ list_rbx() {
     done < "$SAVE_FILE"
     return 0
 }
-
 get_rbx_by_num() {
     local num="$1"
     local line=$(sed -n "${num}p" "$SAVE_FILE" 2>/dev/null)
     [ -z "$line" ] && return 1
     echo "$line" | cut -d'|' -f2
 }
-
 get_rbx_by_name() {
     local sname="$1"
     sname=$(echo "$sname" | sed 's/ /_/g')
     grep -i "^${sname}|" "$SAVE_FILE" 2>/dev/null | head -n 1 | cut -d'|' -f2
 }
-
 delete_rbx_by_name() {
     local sname=$(echo "$1" | sed 's/ /_/g')
     grep -v -i "^${sname}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp"
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null
 }
-
 exploit_lobby() {
     clear
     if [ "$SELECTED" = "id" ]; then
@@ -287,14 +269,12 @@ exploit_lobby() {
         echo -e "${G}exit${NC} - back"
         echo -e "${W}------------------------------${NC}"
     fi
-
     while true; do
         echo ""
         read -p "exploit> " ecmd
         [ -z "$ecmd" ] && continue
         efull=$(norm "$ecmd")
         earg=$(echo "$ecmd" | cut -d' ' -f3- | xargs)
-
         case "$efull" in
             exp\ search* )
                 if [ -z "$earg" ]; then
@@ -307,28 +287,23 @@ exploit_lobby() {
                     am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
                 fi
                 ;;
-
             exit|quit|q|keluar|00)
                 show_roblox_lobby_v16
                 break
                 ;;
-
             *)
                 echo -e "${Y}Gunakan: exp search <keyword> / exit${NC}"
                 ;;
         esac
     done
 }
-
 roblox_lobby() {
     show_roblox_lobby_v16
-
     while true; do
         echo ""
         read -p "roblox> " rcmd
         [ -z "$rcmd" ] && continue
         rfull=$(norm "$rcmd")
-
         case "$rfull" in
             rbx\ playgame* | playgame* )
                 rid=$(echo "$rcmd" | awk '{print $NF}')
@@ -343,7 +318,6 @@ roblox_lobby() {
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
-
             rbx\ playersearch* | playersearch* )
                 rid=$(echo "$rcmd" | awk '{print $NF}')
                 if [ -z "$rid" ]; then
@@ -355,7 +329,6 @@ roblox_lobby() {
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
-
             rbx\ save* | save* )
                 save_args=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?save[ ]+//I' | xargs)
                 if [ -z "$save_args" ]; then
@@ -376,7 +349,6 @@ roblox_lobby() {
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
-
             rbx\ listjoin* | listjoin* )
                 arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?listjoin[ ]*//I' | xargs)
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
@@ -400,7 +372,6 @@ roblox_lobby() {
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
-
             rbx\ rmls* | rmls* )
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
                     echo -e "${Y}Belum ada save-an${NC}"
@@ -427,21 +398,17 @@ roblox_lobby() {
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
-
             help )
                 show_roblox_help
                 ;;
-
             exploit )
                 exploit_lobby
                 ;;
-
             exit|quit|q|keluar)
                 clear
                 show_cmd
                 break
                 ;;
-
             *)
                 echo -e "${Y}Command tidak dikenal. Ketik 'help' untuk panduan${NC}"
                 sleep 1
@@ -450,24 +417,19 @@ roblox_lobby() {
         esac
     done
 }
-
 run_fileman() {
     if [ ! -d "$HOME/storage" ]; then
         termux-setup-storage
         sleep 2
     fi
     command -v nano >/dev/null 2>&1 || pkg install -y nano >/dev/null 2>&1
-
     CUR_DIR="/sdcard"
     [ ! -d "$CUR_DIR" ] && CUR_DIR="$HOME"
-
     while true; do
         clear
         echo -e "${C}File Manager - $CUR_DIR${NC}"
         echo -e "${W}------------------------------${NC}"
-
         mapfile -t ENTRIES < <(ls "$CUR_DIR" 2>/dev/null)
-
         if [ ${#ENTRIES[@]} -eq 0 ]; then
             echo -e "${Y}Folder kosong${NC}"
         else
@@ -481,21 +443,17 @@ run_fileman() {
                 i=$((i+1))
             done
         fi
-
         echo -e "${W}------------------------------${NC}"
         echo -e "${Y}angka=pilih | 00=kembali | 0=keluar${NC}"
         echo ""
-
         read -p "fileman> " finp
         finp_trim=$(echo "$finp" | xargs)
         [ -z "$finp_trim" ] && continue
-
         if [ "$finp_trim" = "0" ]; then
             clear
             show_cmd
             break
         fi
-
         if [ "$finp_trim" = "00" ]; then
             if [ "$CUR_DIR" = "/sdcard" ] || [ "$CUR_DIR" = "/storage/emulated/0" ] || [ "$CUR_DIR" = "$HOME" ] || [ "$CUR_DIR" = "/" ]; then
                 clear
@@ -506,13 +464,11 @@ run_fileman() {
                 continue
             fi
         fi
-
         if echo "$finp_trim" | grep -Eq '^[0-9]+$'; then
             num=$finp_trim
             if [ "$num" -ge 1 ] && [ "$num" -le ${#ENTRIES[@]} ]; then
                 sel="${ENTRIES[$((num-1))]}"
                 tpath="$CUR_DIR/$sel"
-
                 if [ -d "$tpath" ]; then
                     CUR_DIR="$tpath"
                 else
@@ -538,7 +494,6 @@ run_fileman() {
                         echo -e "${W}------------------------------${NC}"
                         read -p "Pilih> " opt
                         opt=$(echo "$opt" | xargs)
-
                         case "$opt" in
                             1)
                                 if echo "$tpath" | grep -qi "\.apk$"; then
@@ -643,7 +598,6 @@ run_fileman() {
         fi
     done
 }
-
 run_antilag() {
     clear
     echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
@@ -662,7 +616,6 @@ run_antilag() {
     sleep 1
     clear
 }
-
 do_update() {
     clear
     cd ~
@@ -677,7 +630,6 @@ do_update() {
     bash main-engine.sh
     exit 0
 }
-
 if [ -f "$LANG_FILE" ] && [ "$1" != "--reset-lang" ]; then
     saved=$(norm "$(cat $LANG_FILE)")
     if [[ "$saved" == "id" || "$saved" == "en" ]]; then
@@ -688,17 +640,14 @@ if [ -f "$LANG_FILE" ] && [ "$1" != "--reset-lang" ]; then
 else
     choose_lang
 fi
-
 show_sel
 show_cmd
-
 while true; do
     echo ""
     read -p "assistant> " cmd
     [ -z "$cmd" ] && continue
     full=$(norm "$cmd")
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
-
     case "$full" in
         "as update") do_update ;;
         "as roblox"|"roblox"|"rbx") roblox_lobby ;;
