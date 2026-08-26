@@ -9,6 +9,7 @@ NC='\033[0m'
 LANG_FILE="$HOME/.as_lang"
 SAVE_FILE="$HOME/.rbx_saves"
 SELECTED=""
+VERSION="1.0"
 ROBLOX_PLAYER_URL="https://www.roblox.com/users/"
 ROBLOX_PLAYER_DEEP="roblox://users/"
 norm() {
@@ -47,7 +48,7 @@ show_sel() {
 }
 show_cmd() {
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}command assistant${NC}"
+        echo -e "${C}command assistant v${VERSION}${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
         echo -e "${G}as roblox${NC}  - masuk ke Roblox lobby"
@@ -57,7 +58,7 @@ show_cmd() {
         echo -e "${G}exit${NC}     - keluar"
         echo -e "${W}------------------------------${NC}"
     else
-        echo -e "${C}command assistant${NC}"
+        echo -e "${C}command assistant v${VERSION}${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
         echo -e "${G}as roblox${NC}  - enter Roblox lobby"
@@ -71,7 +72,7 @@ show_cmd() {
 show_roblox_lobby_v16() {
     clear
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}Roblox lobby${NC}"
+        echo -e "${C}Roblox lobby v${VERSION}${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}rbx playgame <id>${NC} - join map"
@@ -83,7 +84,7 @@ show_roblox_lobby_v16() {
         echo -e "${G}exit${NC} - keluar lobby"
         echo -e "${W}------------------------------${NC}"
     else
-        echo -e "${C}Roblox lobby${NC}"
+        echo -e "${C}Roblox lobby v${VERSION}${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}rbx playgame <id>${NC} - join map"
@@ -220,11 +221,19 @@ save_rbx() {
     grep -v "^${name}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp" || true
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null || true
     echo "${name}|${id}" >> "$SAVE_FILE"
-    echo -e "${G}Disimpan: $name -> $id${NC}"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${G}Disimpan: $name -> $id${NC}"
+    else
+        echo -e "${G}Saved: $name -> $id${NC}"
+    fi
 }
 list_rbx() {
     if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
-        echo -e "${Y}Belum ada save-an${NC}"
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${Y}Belum ada save-an${NC}"
+        else
+            echo -e "${Y}No saved maps${NC}"
+        fi
         return 1
     fi
     local i=1
@@ -277,11 +286,19 @@ exploit_lobby() {
         case "$efull" in
             exp\ search* )
                 if [ -z "$earg" ]; then
-                    echo -e "${Y}Contoh: exp search speed hub x${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Contoh: exp search speed hub x${NC}"
+                    else
+                        echo -e "${Y}Example: exp search speed hub x${NC}"
+                    fi
                 else
                     search_plus=$(echo "$earg" | sed 's/ /+/g')
                     link="https://scriptblox.com/?q=${search_plus}"
-                    echo -e "${C}[EXP] Mencari: $earg${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${C}[EXP] Mencari: $earg${NC}"
+                    else
+                        echo -e "${C}[EXP] Searching: $earg${NC}"
+                    fi
                     termux-open-url "$link" >/dev/null 2>&1
                     am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
                 fi
@@ -291,7 +308,11 @@ exploit_lobby() {
                 break
                 ;;
             *)
-                echo -e "${Y}Gunakan: exp search <keyword> / exit${NC}"
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${Y}Gunakan: exp search <keyword> / exit${NC}"
+                else
+                    echo -e "${Y}Use: exp search <keyword> / exit${NC}"
+                fi
                 ;;
         esac
     done
@@ -310,7 +331,11 @@ roblox_lobby() {
                     rid=$(echo "$rcmd" | awk '{print $3}')
                 fi
                 if [ -z "$rid" ] || ! echo "$rid" | grep -Eq '^[0-9]+$'; then
-                    echo -e "${Y}Contoh: rbx playgame 2753915549${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Contoh: rbx playgame 2753915549${NC}"
+                    else
+                        echo -e "${Y}Example: rbx playgame 2753915549${NC}"
+                    fi
                 else
                     roblox_join_by_id "$rid"
                 fi
@@ -320,7 +345,11 @@ roblox_lobby() {
             rbx\ playersearch* | playersearch* )
                 rid=$(echo "$rcmd" | awk '{print $NF}')
                 if [ -z "$rid" ]; then
-                    echo -e "${Y}Contoh: rbx playersearch 123456${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Contoh: rbx playersearch 123456${NC}"
+                    else
+                        echo -e "${Y}Example: rbx playersearch 123456${NC}"
+                    fi
                 else
                     termux-open-url "${ROBLOX_PLAYER_URL}${rid}/profile" >/dev/null 2>&1
                     am start -a android.intent.action.VIEW -d "${ROBLOX_PLAYER_DEEP}${rid}" >/dev/null 2>&1
@@ -331,14 +360,24 @@ roblox_lobby() {
             rbx\ save* | save* )
                 save_args=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?save[ ]+//I' | xargs)
                 if [ -z "$save_args" ]; then
-                    read -p "Nama save: " sname_in
-                    read -p "ID map: " sid_in
+                    if [ "$SELECTED" = "id" ]; then
+                        read -p "Masukkan nama save: " sname_in
+                        read -p "Masukkan ID map: " sid_in
+                    else
+                        read -p "Enter save name: " sname_in
+                        read -p "Enter map ID: " sid_in
+                    fi
                     save_rbx "$sname_in" "$sid_in"
                 else
                     sid=$(echo "$save_args" | awk '{print $NF}')
                     if ! echo "$sid" | grep -Eq '^[0-9]+$'; then
-                        read -p "Nama save: " sname_in
-                        read -p "ID map: " sid_in
+                        if [ "$SELECTED" = "id" ]; then
+                            read -p "Masukkan nama save: " sname_in
+                            read -p "Masukkan ID map: " sid_in
+                        else
+                            read -p "Enter save name: " sname_in
+                            read -p "Enter map ID: " sid_in
+                        fi
                         save_rbx "$sname_in" "$sid_in"
                     else
                         sname=$(echo "$save_args" | rev | cut -d' ' -f2- | rev | xargs)
@@ -351,21 +390,45 @@ roblox_lobby() {
             rbx\ listjoin* | listjoin* )
                 arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?listjoin[ ]*//I' | xargs)
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
-                    echo -e "${Y}Belum ada save-an${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Belum ada save-an${NC}"
+                    else
+                        echo -e "${Y}No saved maps${NC}"
+                    fi
                 else
                     if [ -z "$arg" ]; then
                         list_rbx
                         echo ""
-                        read -p "Masukkan angka: " num
+                        if [ "$SELECTED" = "id" ]; then
+                            read -p "Masukkan angka save: " num
+                        else
+                            read -p "Enter save number: " num
+                        fi
                         join_id=$(get_rbx_by_num "$num")
-                        [ -z "$join_id" ] && echo -e "${R}Nomor tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
+                        if [ -z "$join_id" ]; then
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${R}Nomor tidak ditemukan${NC}"
+                            else
+                                echo -e "${R}Number not found${NC}"
+                            fi
+                        else
+                            roblox_join_by_id "$join_id"
+                        fi
                     else
                         if echo "$arg" | grep -Eq '^[0-9]+$'; then
                             join_id=$(get_rbx_by_num "$arg")
                         else
                             join_id=$(get_rbx_by_name "$arg")
                         fi
-                        [ -z "$join_id" ] && echo -e "${R}Save tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
+                        if [ -z "$join_id" ]; then
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${R}Save tidak ditemukan${NC}"
+                            else
+                                echo -e "${R}Save not found${NC}"
+                            fi
+                        else
+                            roblox_join_by_id "$join_id"
+                        fi
                     fi
                 fi
                 sleep 1
@@ -373,24 +436,44 @@ roblox_lobby() {
                 ;;
             rbx\ rmls* | rmls* )
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
-                    echo -e "${Y}Belum ada save-an${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Belum ada save-an${NC}"
+                    else
+                        echo -e "${Y}No saved maps${NC}"
+                    fi
                 else
                     arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?rmls[ ]*//I' | xargs)
                     if [ -z "$arg" ]; then
                         list_rbx
                         echo ""
-                        read -p "Angka yang dihapus: " delnum
+                        if [ "$SELECTED" = "id" ]; then
+                            read -p "Masukkan angka yang mau dihapus: " delnum
+                        else
+                            read -p "Enter number to delete: " delnum
+                        fi
                         if echo "$delnum" | grep -Eq '^[0-9]+$'; then
                             sed -i "${delnum}d" "$SAVE_FILE"
-                            echo -e "${G}Dihapus $delnum${NC}"
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${G}Dihapus nomor $delnum${NC}"
+                            else
+                                echo -e "${G}Deleted number $delnum${NC}"
+                            fi
                         fi
                     else
                         if echo "$arg" | grep -Eq '^[0-9]+$'; then
                             sed -i "${arg}d" "$SAVE_FILE"
-                            echo -e "${G}Dihapus $arg${NC}"
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${G}Dihapus nomor $arg${NC}"
+                            else
+                                echo -e "${G}Deleted number $arg${NC}"
+                            fi
                         else
                             delete_rbx_by_name "$arg"
-                            echo -e "${G}Dihapus: $arg${NC}"
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${G}Dihapus: $arg${NC}"
+                            else
+                                echo -e "${G}Deleted: $arg${NC}"
+                            fi
                         fi
                     fi
                 fi
@@ -410,7 +493,7 @@ roblox_lobby() {
                 ;;
             *)
                 if [ "$SELECTED" = "id" ]; then
-                    echo -e "${Y}Command tidak dikenal. Ketik 'help' untuk panduan${NC}"
+                    echo -e "${Y}Perintah tidak dikenal. Ketik 'help' untuk panduan${NC}"
                 else
                     echo -e "${Y}Unknown command. Type 'help' for guide${NC}"
                 fi
@@ -434,7 +517,11 @@ run_fileman() {
         echo -e "${W}------------------------------${NC}"
         mapfile -t ENTRIES < <(ls "$CUR_DIR" 2>/dev/null)
         if [ ${#ENTRIES[@]} -eq 0 ]; then
-            echo -e "${Y}Folder kosong${NC}"
+            if [ "$SELECTED" = "id" ]; then
+                echo -e "${Y}Folder kosong${NC}"
+            else
+                echo -e "${Y}Empty folder${NC}"
+            fi
         else
             i=1
             for e in "${ENTRIES[@]}"; do
@@ -514,10 +601,18 @@ run_fileman() {
                                 break
                                 ;;
                             2)
-                                read -p "Hapus? (y/n): " conf
+                                if [ "$SELECTED" = "id" ]; then
+                                    read -p "Yakin hapus $sel? (y/n): " conf
+                                else
+                                    read -p "Delete $sel? (y/n): " conf
+                                fi
                                 if [ "$conf" = "y" ] || [ "$conf" = "Y" ]; then
                                     rm -rf "$tpath"
-                                    echo -e "${G}Dihapus${NC}"
+                                    if [ "$SELECTED" = "id" ]; then
+                                        echo -e "${G}Dihapus${NC}"
+                                    else
+                                        echo -e "${G}Deleted${NC}"
+                                    fi
                                     sleep 1
                                 fi
                                 break
@@ -532,7 +627,11 @@ run_fileman() {
                                 else
                                     cp "$tpath" "$dir/${name}_copy.${ext}" 2>/dev/null || cp "$tpath" "$dir/${base}_copy"
                                 fi
-                                echo -e "${G}Duplikat OK${NC}"
+                                if [ "$SELECTED" = "id" ]; then
+                                    echo -e "${G}Duplikat berhasil${NC}"
+                                else
+                                    echo -e "${G}Duplicated OK${NC}"
+                                fi
                                 sleep 1
                                 break
                                 ;;
@@ -546,7 +645,11 @@ run_fileman() {
                                     echo -e "${W}------------------------------${NC}"
                                     mapfile -t MOVE_ENTRIES < <(ls "$DEST_DIR" 2>/dev/null)
                                     if [ ${#MOVE_ENTRIES[@]} -eq 0 ]; then
-                                        echo -e "${Y}Folder kosong${NC}"
+                                        if [ "$SELECTED" = "id" ]; then
+                                            echo -e "${Y}Folder kosong${NC}"
+                                        else
+                                            echo -e "${Y}Empty folder${NC}"
+                                        fi
                                     else
                                         i=1
                                         for me in "${MOVE_ENTRIES[@]}"; do
@@ -573,7 +676,11 @@ run_fileman() {
                                     minp_trim=$(echo "$minp" | xargs)
                                     if [ "$minp_trim" = "0" ]; then
                                         mv "$ORIG_FILE" "$DEST_DIR/"
-                                        echo -e "${G}Dipindahkan ke $DEST_DIR${NC}"
+                                        if [ "$SELECTED" = "id" ]; then
+                                            echo -e "${G}Dipindahkan ke $DEST_DIR${NC}"
+                                        else
+                                            echo -e "${G}Moved to $DEST_DIR${NC}"
+                                        fi
                                         sleep 1
                                         break
                                     fi
@@ -597,17 +704,32 @@ run_fileman() {
                                 break
                                 ;;
                             5)
-                                read -p "Nama baru: " newname
+                                if [ "$SELECTED" = "id" ]; then
+                                    read -p "Masukkan nama baru: " newname
+                                else
+                                    read -p "Enter new name: " newname
+                                fi
                                 newname=$(echo "$newname" | xargs)
                                 if [ -n "$newname" ]; then
                                     mv "$tpath" "$(dirname "$tpath")/$newname"
-                                    echo -e "${G}Rename OK${NC}"
+                                    if [ "$SELECTED" = "id" ]; then
+                                        echo -e "${G}Berhasil ganti nama${NC}"
+                                    else
+                                        echo -e "${G}Renamed OK${NC}"
+                                    fi
                                     sleep 1
                                 fi
                                 break
                                 ;;
                             0) break ;;
-                            *) echo -e "${Y}Tidak valid${NC}"; sleep 1 ;;
+                            *)
+                                if [ "$SELECTED" = "id" ]; then
+                                    echo -e "${Y}Pilihan tidak valid${NC}"
+                                else
+                                    echo -e "${Y}Invalid choice${NC}"
+                                fi
+                                sleep 1
+                                ;;
                         esac
                     done
                 fi
@@ -617,7 +739,11 @@ run_fileman() {
 }
 run_antilag() {
     clear
-    echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${C}Menjalankan tool boost-performance terbaru v${VERSION}...${NC}"
+    else
+        echo -e "${C}Running latest boost-performance tool v${VERSION}...${NC}"
+    fi
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
     pkg update -y
@@ -629,7 +755,11 @@ run_antilag() {
     bash command.sh
     bash main-engine.sh
     cd ~
-    echo -e "${G}Selesai${NC}"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${G}Selesai, kembali ke menu utama...${NC}"
+    else
+        echo -e "${G}Done, back to main menu...${NC}"
+    fi
     sleep 1
     clear
 }
@@ -672,19 +802,43 @@ while true; do
         "as fileman") run_fileman ;;
         as\ lang* )
             if [ -z "$lang_arg" ]; then
-                echo -e "${Y}Contoh: as lang id${NC}"
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${Y}Contoh: as lang id${NC}"
+                else
+                    echo -e "${Y}Example: as lang id${NC}"
+                fi
                 continue
             fi
             larg=$(norm "$lang_arg")
             case "$larg" in
-                1|2) echo -e "${R}Angka tidak bisa${NC}" ;;
+                1|2)
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${R}Angka tidak bisa${NC}"
+                    else
+                        echo -e "${R}Numbers not allowed${NC}"
+                    fi
+                    ;;
                 id|indonesia|indo) SELECTED="id"; echo "$SELECTED" > "$LANG_FILE"; show_sel; show_cmd ;;
                 en|english|inggris|eng) SELECTED="en"; echo "$SELECTED" > "$LANG_FILE"; show_sel; show_cmd ;;
-                *) echo -e "${R}Bahasa tidak dikenal${NC}" ;;
+                *)
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${R}Bahasa tidak dikenal${NC}"
+                    else
+                        echo -e "${R}Unknown language${NC}"
+                    fi
+                    ;;
             esac
             ;;
         "as help"|"help") clear; show_cmd ;;
-        "exit"|"quit"|"q") exit 0 ;;
-        *) echo -e "${Y}Perintah tidak dikenal${NC}" ;;
+        "exit"|"quit"|"q")
+            exit 0
+            ;;
+        *)
+            if [ "$SELECTED" = "id" ]; then
+                echo -e "${Y}Perintah tidak dikenal${NC}"
+            else
+                echo -e "${Y}Unknown command${NC}"
+            fi
+            ;;
     esac
 done
