@@ -99,16 +99,13 @@ show_cmd() {
     if [ -z "$cols" ]; then cols=${COLUMNS:-60}; fi
     if [ "$cols" -gt 120 ]; then cols=120; fi
     if [ "$cols" -lt 20 ]; then cols=30; fi
-    local inner=$((cols - 2))
     echo -e "${M}$(auto_box_top)${NC}"
-    local c1=" █████  ███████ ████████ ███████ ███   █ ████████"
-    local c2="██   ██ ██         ██    ██      ████  █    ██   "
-    local c3="███████ ███████    ██    ███████ ██ ██ █    ██   "
-    local c4="██   ██      ██    ██         ██ ██  ███    ██   "
-    local c5="██   ██ ███████    ██    ███████ ██   ██    ██   "
-    for c in "$c1" "$c2" "$c3" "$c4" "$c5"; do
+    local c1=" ███  ████ ████ ████ █ █ ████"
+    local c2="█  █ █    █  █ █    █ █  █"
+    local c3=" ███ ████ █  █ ████ █ █  █"
+    for c in "$c1" "$c2" "$c3"; do
         local clen=${#c}
-        local pad=$((inner - clen - 2))
+        local pad=$((cols - 2 - clen - 2))
         if [ $pad -lt 0 ]; then pad=0; fi
         printf "${M}║ ${NC}${M}%s${NC}%${pad}s${M} ║${NC}\n" "$c" ""
     done
@@ -144,12 +141,10 @@ show_assistant_help() {
     if [ "$cols" -gt 120 ]; then cols=120; fi
     if [ "$cols" -lt 20 ]; then cols=30; fi
     echo -e "${M}$(auto_box_top)${NC}"
-    local c1=" █████  ███████ ████████ ███████ ███   █ ████████"
-    local c2="██   ██ ██         ██    ██      ████  █    ██   "
-    local c3="███████ ███████    ██    ███████ ██ ██ █    ██   "
-    local c4="██   ██      ██    ██         ██ ██  ███    ██   "
-    local c5="██   ██ ███████    ██    ███████ ██   ██    ██   "
-    for c in "$c1" "$c2" "$c3" "$c4" "$c5"; do
+    local c1=" ███  ████ ████ ████ █ █ ████"
+    local c2="█  █ █    █  █ █    █ █  █"
+    local c3=" ███ ████ █  █ ████ █ █  █"
+    for c in "$c1" "$c2" "$c3"; do
         local clen=${#c}
         local pad=$((cols - 2 - clen - 2))
         if [ $pad -lt 0 ]; then pad=0; fi
@@ -415,7 +410,8 @@ exploit_lobby() {
     fi
     while true; do
         echo ""
-        read -p "exploit> " ecmd
+        echo -e "${C}┏━[exploit]┫${NC}"
+        read -p "$(echo -e ${C}┗━<$ ${NC})" ecmd
         [ -z "$ecmd" ] && continue
         efull=$(norm "$ecmd")
         earg=$(echo "$ecmd" | cut -d' ' -f3- | xargs)
@@ -457,7 +453,8 @@ roblox_lobby() {
     show_roblox_lobby_v16
     while true; do
         echo ""
-        read -p "roblox> " rcmd
+        echo -e "${C}┏━[Roblox]┫${NC}"
+        read -p "$(echo -e ${C}┗━<$ ${NC})" rcmd
         [ -z "$rcmd" ] && continue
         rfull=$(norm "$rcmd")
         case "$rfull" in
@@ -728,7 +725,8 @@ run_fileman() {
             echo -e "${Y}Type 00 to go back, 0 to exit (hidden stays hidden)${NC}"
         fi
         echo ""
-        read -p "fileman> " finp
+        echo -e "${C}┏━[fileman]┫${NC}"
+        read -p "$(echo -e ${C}┗━<$ ${NC})" finp
         finp_trim=$(echo "$finp" | xargs)
         [ -z "$finp_trim" ] && continue
         if [ "$finp_trim" = "0" ]; then
@@ -860,7 +858,8 @@ run_fileman() {
                                         echo -e "${Y}Type 0 to move file to this folder${NC}"
                                     fi
                                     echo ""
-                                    read -p "move> " minp
+                                    echo -e "${C}┏━[move]┫${NC}"
+                                    read -p "$(echo -e ${C}┗━<$ ${NC})" minp
                                     minp_trim=$(echo "$minp" | xargs)
                                     if [ "$minp_trim" = "0" ]; then
                                         mv "$ORIG_FILE" "$DEST_DIR/"
@@ -982,7 +981,7 @@ show_cmd
 while true; do
     echo ""
     echo -e "${C}┏━[assistant]┫${NC}"
-    read -p "┗━<$ " cmd
+    read -p "$(echo -e ${C}┗━<$ ${NC})" cmd
     [ -z "$cmd" ] && continue
     full=$(norm "$cmd")
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
