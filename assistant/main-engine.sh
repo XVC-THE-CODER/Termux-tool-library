@@ -32,38 +32,6 @@ auto_line() {
     fi
     printf '═%.0s' $(seq 1 $cols)
 }
-auto_box_top() {
-    local cols=$(tput cols 2>/dev/null)
-    if [ -z "$cols" ]; then
-        cols=${COLUMNS:-60}
-    fi
-    if [ "$cols" -gt 120 ]; then
-        cols=120
-    fi
-    if [ "$cols" -lt 20 ]; then
-        cols=30
-    fi
-    local inner=$((cols - 2))
-    printf '╔'
-    printf '═%.0s' $(seq 1 $inner)
-    printf '╗'
-}
-auto_box_bottom() {
-    local cols=$(tput cols 2>/dev/null)
-    if [ -z "$cols" ]; then
-        cols=${COLUMNS:-60}
-    fi
-    if [ "$cols" -gt 120 ]; then
-        cols=120
-    fi
-    if [ "$cols" -lt 20 ]; then
-        cols=30
-    fi
-    local inner=$((cols - 2))
-    printf '╚'
-    printf '═%.0s' $(seq 1 $inner)
-    printf '╝'
-}
 choose_lang() {
     clear
     echo -e "${C}$(auto_line)${NC}"
@@ -95,21 +63,12 @@ show_sel() {
 show_cmd() {
     clear
     local line=$(auto_line)
-    local cols=$(tput cols 2>/dev/null)
-    if [ -z "$cols" ]; then cols=${COLUMNS:-60}; fi
-    if [ "$cols" -gt 120 ]; then cols=120; fi
-    if [ "$cols" -lt 20 ]; then cols=30; fi
-    echo -e "${M}$(auto_box_top)${NC}"
-    local c1=" ███  ████ ████ ████ █ █ ████"
-    local c2="█  █ █    █  █ █    █ █  █"
-    local c3=" ███ ████ █  █ ████ █ █  █"
-    for c in "$c1" "$c2" "$c3"; do
-        local clen=${#c}
-        local pad=$((cols - 2 - clen - 2))
-        if [ $pad -lt 0 ]; then pad=0; fi
-        printf "${M}║ ${NC}${M}%s${NC}%${pad}s${M} ║${NC}\n" "$c" ""
-    done
-    echo -e "${M}$(auto_box_bottom)${NC}"
+    printf "${M}%s${NC}\n" '                 __                 __   '
+    printf "${M}%s${NC}\n" '_____    _______/  |_  ______ _____/  |_ '
+    printf "${M}%s${NC}\n" '\__  \  /  ___/\   __\/  ___//    \   __\'
+    printf "${M}%s${NC}\n" ' / __ \_\___ \  |  |  \___ \|   |  \  |  '
+    printf "${M}%s${NC}\n" '(____  /____  > |__| /____  >___|  /__|  '
+    printf "${M}%s${NC}\n" '     \/     \/            \/     \/       '
     echo -e "${W}${line}${NC}"
     echo -e "${C}command${NC}"
     echo -e "${C}assistant 1.2${NC}"
@@ -136,21 +95,12 @@ show_cmd() {
 show_assistant_help() {
     clear
     local line=$(auto_line)
-    local cols=$(tput cols 2>/dev/null)
-    if [ -z "$cols" ]; then cols=${COLUMNS:-60}; fi
-    if [ "$cols" -gt 120 ]; then cols=120; fi
-    if [ "$cols" -lt 20 ]; then cols=30; fi
-    echo -e "${M}$(auto_box_top)${NC}"
-    local c1=" ███  ████ ████ ████ █ █ ████"
-    local c2="█  █ █    █  █ █    █ █  █"
-    local c3=" ███ ████ █  █ ████ █ █  █"
-    for c in "$c1" "$c2" "$c3"; do
-        local clen=${#c}
-        local pad=$((cols - 2 - clen - 2))
-        if [ $pad -lt 0 ]; then pad=0; fi
-        printf "${M}║ ${NC}${M}%s${NC}%${pad}s${M} ║${NC}\n" "$c" ""
-    done
-    echo -e "${M}$(auto_box_bottom)${NC}"
+    printf "${M}%s${NC}\n" '                 __                 __   '
+    printf "${M}%s${NC}\n" '_____    _______/  |_  ______ _____/  |_ '
+    printf "${M}%s${NC}\n" '\__  \  /  ___/\   __\/  ___//    \   __\'
+    printf "${M}%s${NC}\n" ' / __ \_\___ \  |  |  \___ \|   |  \  |  '
+    printf "${M}%s${NC}\n" '(____  /____  > |__| /____  >___|  /__|  '
+    printf "${M}%s${NC}\n" '     \/     \/            \/     \/       '
     echo -e "${W}${line}${NC}"
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}=== PANDUAN ASSISTANT - FULL & SINGKAT ===${NC}"
@@ -410,8 +360,8 @@ exploit_lobby() {
     fi
     while true; do
         echo ""
-        echo -e "${C}┏━[exploit]┫${NC}"
-        read -p "$(echo -e ${C}┗━<$ ${NC})" ecmd
+        echo -e "${W}┏━[exploit]┫${NC}"
+        read -p "$(echo -e ${W}┗━<$ ${NC})" ecmd
         [ -z "$ecmd" ] && continue
         efull=$(norm "$ecmd")
         earg=$(echo "$ecmd" | cut -d' ' -f3- | xargs)
@@ -453,8 +403,8 @@ roblox_lobby() {
     show_roblox_lobby_v16
     while true; do
         echo ""
-        echo -e "${C}┏━[Roblox]┫${NC}"
-        read -p "$(echo -e ${C}┗━<$ ${NC})" rcmd
+        echo -e "${W}┏━[Roblox]┫${NC}"
+        read -p "$(echo -e ${W}┗━<$ ${NC})" rcmd
         [ -z "$rcmd" ] && continue
         rfull=$(norm "$rcmd")
         case "$rfull" in
@@ -725,8 +675,8 @@ run_fileman() {
             echo -e "${Y}Type 00 to go back, 0 to exit (hidden stays hidden)${NC}"
         fi
         echo ""
-        echo -e "${C}┏━[fileman]┫${NC}"
-        read -p "$(echo -e ${C}┗━<$ ${NC})" finp
+        echo -e "${W}┏━[fileman]┫${NC}"
+        read -p "$(echo -e ${W}┗━<$ ${NC})" finp
         finp_trim=$(echo "$finp" | xargs)
         [ -z "$finp_trim" ] && continue
         if [ "$finp_trim" = "0" ]; then
@@ -858,8 +808,8 @@ run_fileman() {
                                         echo -e "${Y}Type 0 to move file to this folder${NC}"
                                     fi
                                     echo ""
-                                    echo -e "${C}┏━[move]┫${NC}"
-                                    read -p "$(echo -e ${C}┗━<$ ${NC})" minp
+                                    echo -e "${W}┏━[move]┫${NC}"
+                                    read -p "$(echo -e ${W}┗━<$ ${NC})" minp
                                     minp_trim=$(echo "$minp" | xargs)
                                     if [ "$minp_trim" = "0" ]; then
                                         mv "$ORIG_FILE" "$DEST_DIR/"
@@ -980,8 +930,8 @@ show_sel
 show_cmd
 while true; do
     echo ""
-    echo -e "${C}┏━[assistant]┫${NC}"
-    read -p "$(echo -e ${C}┗━<$ ${NC})" cmd
+    echo -e "${W}┏━[assistant]┫${NC}"
+    read -p "$(echo -e ${W}┗━<$ ${NC})" cmd
     [ -z "$cmd" ] && continue
     full=$(norm "$cmd")
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
