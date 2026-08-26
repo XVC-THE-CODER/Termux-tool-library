@@ -361,7 +361,7 @@ exploit_lobby() {
     while true; do
         echo ""
         echo -e "${W}┏━[exploit]┫${NC}"
-        read -p "$(echo -e ${W}┗━<$ ${NC})" ecmd
+        read -p $'\033[1;37m┗━<$ \033[0m' ecmd
         [ -z "$ecmd" ] && continue
         efull=$(norm "$ecmd")
         earg=$(echo "$ecmd" | cut -d' ' -f3- | xargs)
@@ -404,7 +404,7 @@ roblox_lobby() {
     while true; do
         echo ""
         echo -e "${W}┏━[Roblox]┫${NC}"
-        read -p "$(echo -e ${W}┗━<$ ${NC})" rcmd
+        read -p $'\033[1;37m┗━<$ \033[0m' rcmd
         [ -z "$rcmd" ] && continue
         rfull=$(norm "$rcmd")
         case "$rfull" in
@@ -676,7 +676,7 @@ run_fileman() {
         fi
         echo ""
         echo -e "${W}┏━[fileman]┫${NC}"
-        read -p "$(echo -e ${W}┗━<$ ${NC})" finp
+        read -p $'\033[1;37m┗━<$ \033[0m' finp
         finp_trim=$(echo "$finp" | xargs)
         [ -z "$finp_trim" ] && continue
         if [ "$finp_trim" = "0" ]; then
@@ -809,7 +809,7 @@ run_fileman() {
                                     fi
                                     echo ""
                                     echo -e "${W}┏━[move]┫${NC}"
-                                    read -p "$(echo -e ${W}┗━<$ ${NC})" minp
+                                    read -p $'\033[1;37m┗━<$ \033[0m' minp
                                     minp_trim=$(echo "$minp" | xargs)
                                     if [ "$minp_trim" = "0" ]; then
                                         mv "$ORIG_FILE" "$DEST_DIR/"
@@ -931,7 +931,7 @@ show_cmd
 while true; do
     echo ""
     echo -e "${W}┏━[assistant]┫${NC}"
-    read -p "$(echo -e ${W}┗━<$ ${NC})" cmd
+    read -p $'\033[1;37m┗━<$ \033[0m' cmd
     [ -z "$cmd" ] && continue
     full=$(norm "$cmd")
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
