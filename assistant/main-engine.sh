@@ -9,7 +9,7 @@ NC='\033[0m'
 LANG_FILE="$HOME/.as_lang"
 SAVE_FILE="$HOME/.rbx_saves"
 SELECTED=""
-VERSION="1.0"
+VERSION="1.1"
 ROBLOX_PLAYER_URL="https://www.roblox.com/users/"
 ROBLOX_PLAYER_DEEP="roblox://users/"
 norm() {
@@ -48,7 +48,7 @@ show_sel() {
 }
 show_cmd() {
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}command assistant v${VERSION}${NC}"
+        echo -e "${C}command assistant${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
         echo -e "${G}as roblox${NC}  - masuk ke Roblox lobby"
@@ -58,7 +58,7 @@ show_cmd() {
         echo -e "${G}exit${NC}     - keluar"
         echo -e "${W}------------------------------${NC}"
     else
-        echo -e "${C}command assistant v${VERSION}${NC}"
+        echo -e "${C}command assistant${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
         echo -e "${G}as roblox${NC}  - enter Roblox lobby"
@@ -72,7 +72,7 @@ show_cmd() {
 show_roblox_lobby_v16() {
     clear
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}Roblox lobby v${VERSION}${NC}"
+        echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}rbx playgame <id>${NC} - join map"
@@ -84,7 +84,7 @@ show_roblox_lobby_v16() {
         echo -e "${G}exit${NC} - keluar lobby"
         echo -e "${W}------------------------------${NC}"
     else
-        echo -e "${C}Roblox lobby v${VERSION}${NC}"
+        echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}rbx playgame <id>${NC} - join map"
@@ -361,26 +361,57 @@ roblox_lobby() {
                 save_args=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?save[ ]+//I' | xargs)
                 if [ -z "$save_args" ]; then
                     if [ "$SELECTED" = "id" ]; then
-                        read -p "Masukkan nama save: " sname_in
-                        read -p "Masukkan ID map: " sid_in
+                        read -p "Masukkan nama save (0 untuk keluar): " sname_in
                     else
-                        read -p "Enter save name: " sname_in
-                        read -p "Enter map ID: " sid_in
+                        read -p "Enter save name (0 to exit): " sname_in
+                    fi
+                    sname_in=$(echo "$sname_in" | xargs)
+                    if [ "$sname_in" = "0" ]; then
+                        show_roblox_lobby_v16
+                        continue
+                    fi
+                    if [ "$SELECTED" = "id" ]; then
+                        read -p "Masukkan ID map (0 untuk keluar): " sid_in
+                    else
+                        read -p "Enter map ID (0 to exit): " sid_in
+                    fi
+                    sid_in=$(echo "$sid_in" | xargs)
+                    if [ "$sid_in" = "0" ]; then
+                        show_roblox_lobby_v16
+                        continue
                     fi
                     save_rbx "$sname_in" "$sid_in"
                 else
+                    if [ "$save_args" = "0" ]; then
+                        show_roblox_lobby_v16
+                        continue
+                    fi
                     sid=$(echo "$save_args" | awk '{print $NF}')
+                    if [ "$sid" = "0" ]; then
+                        show_roblox_lobby_v16
+                        continue
+                    fi
                     if ! echo "$sid" | grep -Eq '^[0-9]+$'; then
                         if [ "$SELECTED" = "id" ]; then
-                            read -p "Masukkan nama save: " sname_in
-                            read -p "Masukkan ID map: " sid_in
+                            read -p "Masukkan nama save (0 untuk keluar): " sname_in
+                            read -p "Masukkan ID map (0 untuk keluar): " sid_in
                         else
-                            read -p "Enter save name: " sname_in
-                            read -p "Enter map ID: " sid_in
+                            read -p "Enter save name (0 to exit): " sname_in
+                            read -p "Enter map ID (0 to exit): " sid_in
+                        fi
+                        sname_in=$(echo "$sname_in" | xargs)
+                        sid_in=$(echo "$sid_in" | xargs)
+                        if [ "$sname_in" = "0" ] || [ "$sid_in" = "0" ]; then
+                            show_roblox_lobby_v16
+                            continue
                         fi
                         save_rbx "$sname_in" "$sid_in"
                     else
                         sname=$(echo "$save_args" | rev | cut -d' ' -f2- | rev | xargs)
+                        if [ "$sname" = "0" ]; then
+                            show_roblox_lobby_v16
+                            continue
+                        fi
                         save_rbx "$sname" "$sid"
                     fi
                 fi
@@ -389,6 +420,10 @@ roblox_lobby() {
                 ;;
             rbx\ listjoin* | listjoin* )
                 arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?listjoin[ ]*//I' | xargs)
+                if [ "$arg" = "0" ]; then
+                    show_roblox_lobby_v16
+                    continue
+                fi
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
                     if [ "$SELECTED" = "id" ]; then
                         echo -e "${Y}Belum ada save-an${NC}"
@@ -400,9 +435,14 @@ roblox_lobby() {
                         list_rbx
                         echo ""
                         if [ "$SELECTED" = "id" ]; then
-                            read -p "Masukkan angka save: " num
+                            read -p "Masukkan angka save (0 untuk keluar): " num
                         else
-                            read -p "Enter save number: " num
+                            read -p "Enter save number (0 to exit): " num
+                        fi
+                        num=$(echo "$num" | xargs)
+                        if [ "$num" = "0" ]; then
+                            show_roblox_lobby_v16
+                            continue
                         fi
                         join_id=$(get_rbx_by_num "$num")
                         if [ -z "$join_id" ]; then
@@ -435,6 +475,11 @@ roblox_lobby() {
                 show_roblox_lobby_v16
                 ;;
             rbx\ rmls* | rmls* )
+                arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?rmls[ ]*//I' | xargs)
+                if [ "$arg" = "0" ]; then
+                    show_roblox_lobby_v16
+                    continue
+                fi
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
                     if [ "$SELECTED" = "id" ]; then
                         echo -e "${Y}Belum ada save-an${NC}"
@@ -442,14 +487,18 @@ roblox_lobby() {
                         echo -e "${Y}No saved maps${NC}"
                     fi
                 else
-                    arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?rmls[ ]*//I' | xargs)
                     if [ -z "$arg" ]; then
                         list_rbx
                         echo ""
                         if [ "$SELECTED" = "id" ]; then
-                            read -p "Masukkan angka yang mau dihapus: " delnum
+                            read -p "Masukkan angka yang mau dihapus (0 untuk keluar): " delnum
                         else
-                            read -p "Enter number to delete: " delnum
+                            read -p "Enter number to delete (0 to exit): " delnum
+                        fi
+                        delnum=$(echo "$delnum" | xargs)
+                        if [ "$delnum" = "0" ]; then
+                            show_roblox_lobby_v16
+                            continue
                         fi
                         if echo "$delnum" | grep -Eq '^[0-9]+$'; then
                             sed -i "${delnum}d" "$SAVE_FILE"
@@ -740,9 +789,9 @@ run_fileman() {
 run_antilag() {
     clear
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}Menjalankan tool boost-performance terbaru v${VERSION}...${NC}"
+        echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
     else
-        echo -e "${C}Running latest boost-performance tool v${VERSION}...${NC}"
+        echo -e "${C}Running latest boost-performance tool...${NC}"
     fi
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
@@ -831,6 +880,7 @@ while true; do
             ;;
         "as help"|"help") clear; show_cmd ;;
         "exit"|"quit"|"q")
+            cd ~
             exit 0
             ;;
         *)
