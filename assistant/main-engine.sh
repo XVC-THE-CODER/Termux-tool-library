@@ -19,11 +19,24 @@ norm() {
 gen_uuid() {
     cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "cfed5fc6-80be-4d6f-ac0a-d95126cf2b39"
 }
+auto_line() {
+    local cols=$(tput cols 2>/dev/null)
+    if [ -z "$cols" ]; then
+        cols=${COLUMNS:-60}
+    fi
+    if [ "$cols" -gt 120 ]; then
+        cols=120
+    fi
+    if [ "$cols" -lt 20 ]; then
+        cols=30
+    fi
+    printf '═%.0s' $(seq 1 $cols)
+}
 choose_lang() {
     clear
-    echo -e "${C}══════════════════════════════${NC}"
+    echo -e "${C}$(auto_line)${NC}"
     echo -e "${W}  Pilih Bahasa / Choose Language${NC}"
-    echo -e "${C}══════════════════════════════${NC}"
+    echo -e "${C}$(auto_line)${NC}"
     echo -e "${W}[1] Indonesia (id)${NC}"
     echo -e "${W}[2] English (en)${NC}"
     echo ""
@@ -49,15 +62,18 @@ show_sel() {
 }
 show_cmd() {
     clear
-    echo -e "${M} █████  ███████ ████████ ███████ ███   █ ████████${NC}"
-    echo -e "${M}██   ██ ██         ██    ██      ████  █    ██   ${NC}"
-    echo -e "${M}███████ ███████    ██    ███████ ██ ██ █    ██   ${NC}"
-    echo -e "${M}██   ██      ██    ██         ██ ██  ███    ██   ${NC}"
-    echo -e "${M}██   ██ ███████    ██    ███████ ██   ██    ██   ${NC}"
-    echo -e "${W}══════════════════════════════${NC}"
+    local line=$(auto_line)
+    echo -e "${M}╔${line:0:58}╗${NC}"
+    echo -e "${M}║${NC} ${M} █████  ███████ ████████ ███████ ███   █ ████████${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}██   ██ ██         ██    ██      ████  █    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}███████ ███████    ██    ███████ ██ ██ █    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}██   ██      ██    ██         ██ ██  ███    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}██   ██ ███████    ██    ███████ ██   ██    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}╚${line:0:58}╝${NC}"
+    echo -e "${W}${line}${NC}"
     echo -e "${C}command${NC}"
     echo -e "${C}assistant 1.2${NC}"
-    echo -e "${W}══════════════════════════════${NC}"
+    echo -e "${W}${line}${NC}"
     if [ "$SELECTED" = "id" ]; then
         echo -e "${G}as update${NC}  - update github & restart"
         echo -e "${G}as roblox${NC}  - masuk Roblox lobby"
@@ -75,76 +91,55 @@ show_cmd() {
         echo -e "${G}as help${NC}  - full guide"
         echo -e "${G}exit${NC}     - exit"
     fi
-    echo -e "${W}══════════════════════════════${NC}"
+    echo -e "${W}${line}${NC}"
 }
 show_assistant_help() {
     clear
-    echo -e "${M} █████  ███████ ████████ ███████ ███   █ ████████${NC}"
-    echo -e "${M}██   ██ ██         ██    ██      ████  █    ██   ${NC}"
-    echo -e "${M}███████ ███████    ██    ███████ ██ ██ █    ██   ${NC}"
-    echo -e "${M}██   ██      ██    ██         ██ ██  ███    ██   ${NC}"
-    echo -e "${M}██   ██ ███████    ██    ███████ ██   ██    ██   ${NC}"
-    echo -e "${W}══════════════════════════════${NC}"
+    local line=$(auto_line)
+    echo -e "${M}╔${line:0:58}╗${NC}"
+    echo -e "${M}║${NC} ${M} █████  ███████ ████████ ███████ ███   █ ████████${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}██   ██ ██         ██    ██      ████  █    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}███████ ███████    ██    ███████ ██ ██ █    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}██   ██      ██    ██         ██ ██  ███    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}║${NC} ${M}██   ██ ███████    ██    ███████ ██   ██    ██   ${NC} ${M}║${NC}"
+    echo -e "${M}╚${line:0:58}╝${NC}"
+    echo -e "${W}${line}${NC}"
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}=== PANDUAN ASSISTANT - FULL & SINGKAT ===${NC}"
-        echo -e "${W}Bahasa: Indonesia (English translate di dalam kurung)${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}Bahasa: Indonesia${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${G}1. as update${NC} - update github & restart"
-        echo -e "${W}   instant: update${NC}"
-        echo -e "${W}   EN: update via github & restart${NC}"
         echo -e ""
         echo -e "${G}2. as roblox${NC} - masuk Roblox lobby"
-        echo -e "${W}   instant: roblox / rbx${NC}"
-        echo -e "${W}   EN: enter Roblox lobby${NC}"
         echo -e ""
         echo -e "${G}3. as antilag${NC} - boost performa"
-        echo -e "${W}   instant: antilag${NC}"
-        echo -e "${W}   EN: boost performance${NC}"
         echo -e ""
         echo -e "${G}4. as fileman${NC} - file manager hp"
-        echo -e "${W}   instant: fileman${NC}"
-        echo -e "${W}   EN: phone file manager${NC}"
         echo -e ""
         echo -e "${G}5. as lang <id/en>${NC} - ganti bahasa"
-        echo -e "${W}   instant: lang <id/en>${NC}"
-        echo -e "${W}   EN: change language${NC}"
         echo -e ""
         echo -e "${G}6. as help${NC} - panduan ini"
-        echo -e "${W}   instant: help${NC}"
-        echo -e "${W}   EN: show full & short usage${NC}"
         echo -e ""
         echo -e "${G}7. exit${NC} - keluar"
-        echo -e "${W}   EN: exit assistant${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
-        echo -e "${Y}Catatan: command tanpa as tetap bisa dipakai walau tidak ditampilkan${NC}"
-        echo -e "${Y}EN Note: instant without as still works${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     else
         echo -e "${C}=== ASSISTANT GUIDE - FULL & SHORT ===${NC}"
         echo -e "${W}Language: English${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${G}1. as update${NC} - update github & restart"
-        echo -e "${W}   instant: update${NC}"
         echo -e ""
         echo -e "${G}2. as roblox${NC} - enter Roblox lobby"
-        echo -e "${W}   instant: roblox / rbx${NC}"
         echo -e ""
         echo -e "${G}3. as antilag${NC} - boost performance"
-        echo -e "${W}   instant: antilag${NC}"
         echo -e ""
         echo -e "${G}4. as fileman${NC} - phone file manager"
-        echo -e "${W}   instant: fileman${NC}"
         echo -e ""
         echo -e "${G}5. as lang <id/en>${NC} - change language"
-        echo -e "${W}   instant: lang${NC}"
         echo -e ""
         echo -e "${G}6. as help${NC} - this guide"
-        echo -e "${W}   instant: help${NC}"
         echo -e ""
         echo -e "${G}7. exit${NC} - exit assistant"
-        echo -e "${W}══════════════════════════════${NC}"
-        echo -e "${Y}Note: instant without as still works${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     fi
     echo ""
     if [ "$SELECTED" = "id" ]; then
@@ -156,9 +151,10 @@ show_assistant_help() {
 }
 show_roblox_lobby_v16() {
     clear
+    local line=$(auto_line)
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}Roblox lobby${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}rbx playgame <id>${NC} - join map"
         echo -e "${G}rbx playersearch <id>${NC} - cari player"
@@ -167,10 +163,10 @@ show_roblox_lobby_v16() {
         echo -e "${G}rbx rmls [name/angka]${NC} - hapus save"
         echo -e "${G}help${NC} - panduan lengkap & singkat"
         echo -e "${G}exit${NC} - keluar lobby"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     else
         echo -e "${C}Roblox lobby${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}rbx playgame <id>${NC} - join map"
         echo -e "${G}rbx playersearch <id>${NC} - find player"
@@ -179,15 +175,16 @@ show_roblox_lobby_v16() {
         echo -e "${G}rbx rmls [name/number]${NC} - delete saved"
         echo -e "${G}help${NC} - full & short guide"
         echo -e "${G}exit${NC} - exit lobby"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     fi
 }
 show_roblox_help() {
     clear
+    local line=$(auto_line)
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}=== PANDUAN ROBLOX LOBBY - FULL & SINGKAT ===${NC}"
         echo -e "${W}Bahasa: Indonesia (English translate di dalam kurung)${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${G}1. rbx playgame <id>${NC} - join map"
         echo -e "${W}   instant: playgame <id>${NC}"
         echo -e "${W}   EN: join map directly${NC}"
@@ -213,14 +210,14 @@ show_roblox_help() {
         echo -e ""
         echo -e "${G}7. exit${NC} - keluar lobby"
         echo -e "${W}   EN: exit lobby${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${Y}Catatan: command tanpa rbx tetap bisa dipakai walau tidak ditampilkan${NC}"
         echo -e "${Y}EN Note: instant commands without rbx still work even if not shown${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     else
         echo -e "${C}=== ROBLOX LOBBY GUIDE - FULL & SHORT ===${NC}"
         echo -e "${W}Language: English${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${G}1. rbx playgame <id>${NC} - join map"
         echo -e "${W}   instant: playgame <id>${NC}"
         echo -e ""
@@ -239,9 +236,9 @@ show_roblox_help() {
         echo -e "${G}6. help${NC} - this guide"
         echo -e ""
         echo -e "${G}7. exit${NC} - exit lobby"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${Y}Note: instant commands without rbx still work${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     fi
     echo ""
     if [ "$SELECTED" = "id" ]; then
@@ -347,20 +344,21 @@ delete_rbx_by_name() {
 }
 exploit_lobby() {
     clear
+    local line=$(auto_line)
     if [ "$SELECTED" = "id" ]; then
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}rahasia - tidak ada di list Roblox lobby${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${G}exp search <keyword>${NC} - cari script"
         echo -e "${G}exit${NC} - kembali"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     else
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}secret - not in Roblox lobby list${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         echo -e "${G}exp search <keyword>${NC} - search script"
         echo -e "${G}exit${NC} - back"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
     fi
     while true; do
         echo ""
@@ -647,8 +645,9 @@ run_fileman() {
     [ ! -d "$CUR_DIR" ] && CUR_DIR="$HOME"
     while true; do
         clear
+        local line=$(auto_line)
         echo -e "${C}File Manager - $CUR_DIR${NC}"
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         mapfile -t ENTRIES < <(ls "$CUR_DIR" 2>/dev/null)
         if [ ${#ENTRIES[@]} -eq 0 ]; then
             if [ "$SELECTED" = "id" ]; then
@@ -667,7 +666,7 @@ run_fileman() {
                 i=$((i+1))
             done
         fi
-        echo -e "${W}══════════════════════════════${NC}"
+        echo -e "${W}${line}${NC}"
         if [ "$SELECTED" = "id" ]; then
             echo -e "${Y}Ketik angka 1-infinite untuk pilih file/folder${NC}"
             echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar (hidden tetap tersembunyi)${NC}"
@@ -704,8 +703,9 @@ run_fileman() {
                 else
                     while true; do
                         clear
+                        local line2=$(auto_line)
                         echo -e "${C}File: $sel${NC}"
-                        echo -e "${W}══════════════════════════════${NC}"
+                        echo -e "${W}${line2}${NC}"
                         if [ "$SELECTED" = "id" ]; then
                             echo -e "${W}1. buka${NC}"
                             echo -e "${W}2. hapus${NC}"
@@ -721,7 +721,7 @@ run_fileman() {
                             echo -e "${W}5. rename${NC}"
                             echo -e "${W}0. cancel${NC}"
                         fi
-                        echo -e "${W}══════════════════════════════${NC}"
+                        echo -e "${W}${line2}${NC}"
                         read -p "Pilih> " opt
                         opt=$(echo "$opt" | xargs)
                         case "$opt" in
@@ -774,9 +774,10 @@ run_fileman() {
                                 DEST_DIR="$CUR_DIR"
                                 while true; do
                                     clear
+                                    local line3=$(auto_line)
                                     echo -e "${C}Pindah: $(basename "$ORIG_FILE")${NC}"
                                     echo -e "${W}Tujuan: $DEST_DIR${NC}"
-                                    echo -e "${W}══════════════════════════════${NC}"
+                                    echo -e "${W}${line3}${NC}"
                                     mapfile -t MOVE_ENTRIES < <(ls "$DEST_DIR" 2>/dev/null)
                                     if [ ${#MOVE_ENTRIES[@]} -eq 0 ]; then
                                         if [ "$SELECTED" = "id" ]; then
@@ -795,7 +796,7 @@ run_fileman() {
                                             i=$((i+1))
                                         done
                                     fi
-                                    echo -e "${W}══════════════════════════════${NC}"
+                                    echo -e "${W}${line3}${NC}"
                                     if [ "$SELECTED" = "id" ]; then
                                         echo -e "${Y}Ketik angka untuk masuk folder${NC}"
                                         echo -e "${Y}Ketik 00 untuk mundur ke folder sebelumnya${NC}"
@@ -873,11 +874,13 @@ run_fileman() {
 }
 run_antilag() {
     clear
+    local line=$(auto_line)
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
     else
         echo -e "${C}Running latest boost-performance tool...${NC}"
     fi
+    echo -e "${W}${line}${NC}"
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
     pkg update -y
