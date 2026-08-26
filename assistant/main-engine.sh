@@ -58,7 +58,7 @@ show_cmd() {
         echo -e "${C}command assistant${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
-        echo -e "${G}as roblox${NC}  - masuk ke Roblox lobby (lengkap)"
+        echo -e "${G}as roblox${NC}  - masuk ke Roblox lobby"
         echo -e "${G}as antilag${NC} - boost performance"
         echo -e "${G}as fileman${NC} - file manager hp full akses"
         echo -e "${G}as lang <id/en>${NC} - ganti bahasa"
@@ -68,11 +68,41 @@ show_cmd() {
         echo -e "${C}command assistant${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}as update${NC}  - update via github & restart"
-        echo -e "${G}as roblox${NC}  - enter Roblox lobby (complete)"
+        echo -e "${G}as roblox${NC}  - enter Roblox lobby"
         echo -e "${G}as antilag${NC} - boost performance"
         echo -e "${G}as fileman${NC} - full phone file manager"
         echo -e "${G}as lang <id/en>${NC} - change language"
         echo -e "${G}exit${NC}     - exit"
+        echo -e "${W}------------------------------${NC}"
+    fi
+}
+
+# Bentuk Roblox lobby mirip v16 - sama di semua tempat
+show_roblox_lobby_v16() {
+    clear
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${C}Roblox lobby${NC}"
+        echo -e "${W}------------------------------${NC}"
+        echo -e "${W}command${NC}"
+        echo -e "${G}playgame <id> / rbx playgame <id>${NC} - langsung masuk ke map (auto server tidak penuh)"
+        echo -e "${G}searchgame <keyword> / rbx searchgame <keyword>${NC} - cari game via discover (max 25, next 26-50)"
+        echo -e "${G}playersearch <id> / rbx playersearch <id>${NC} - cari player"
+        echo -e "${G}save <name> <id> / rbx save <name> <id>${NC} - simpan map (spasi jadi _)"
+        echo -e "${G}listjoin [name/angka] / rbx listjoin [name/angka]${NC} - join dari save pakai nomor"
+        echo -e "${G}rmls [name/angka] / rbx rmls [name/angka]${NC} - hapus save dari database"
+        echo -e "${G}exit${NC} - keluar dari Roblox lobby"
+        echo -e "${W}------------------------------${NC}"
+    else
+        echo -e "${C}Roblox lobby${NC}"
+        echo -e "${W}------------------------------${NC}"
+        echo -e "${W}command${NC}"
+        echo -e "${G}playgame <id> / rbx playgame <id>${NC} - join map (auto non-full server)"
+        echo -e "${G}searchgame <keyword> / rbx searchgame <keyword>${NC} - search game via discover"
+        echo -e "${G}playersearch <id> / rbx playersearch <id>${NC} - search player"
+        echo -e "${G}save <name> <id> / rbx save <name> <id>${NC} - save map (space to _)"
+        echo -e "${G}listjoin [name/number] / rbx listjoin${NC} - join from save"
+        echo -e "${G}rmls [name/number] / rbx rmls${NC} - delete save"
+        echo -e "${G}exit${NC} - exit from Roblox lobby"
         echo -e "${W}------------------------------${NC}"
     fi
 }
@@ -117,9 +147,9 @@ roblox_join_by_id() {
     fi
     local link="https://ro.blox.com/Ebh5?is_retargeting=false&pid=experiencestart_mobileweb&af_dp=${inner}&af_web_dp=${inner}&deep_link_value=${inner}"
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${G}Join map ID: $id (server tidak penuh)${NC}"
+        echo -e "${G}Join map ID: $id (auto server tidak penuh)${NC}"
     else
-        echo -e "${G}Joining map ID: $id (non-full server)${NC}"
+        echo -e "${G}Joining map ID: $id${NC}"
     fi
     termux-open-url "$link" >/dev/null 2>&1
     am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
@@ -134,11 +164,7 @@ save_rbx() {
     grep -v "^${name}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp" || true
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null || true
     echo "${name}|${id}" >> "$SAVE_FILE"
-    if [ "$SELECTED" = "id" ]; then
-        echo -e "${G}Disimpan: $name -> $id${NC}"
-    else
-        echo -e "${G}Saved: $name -> $id${NC}"
-    fi
+    echo -e "${G}Disimpan: $name -> $id${NC}"
 }
 
 list_rbx() {
@@ -177,79 +203,47 @@ delete_rbx_by_name() {
 search_roblox_games() {
     local keyword="$1"
     [ -z "$keyword" ] && return
-
     local encoded=$(echo "$keyword" | sed 's/ /%20/g')
     local plus=$(echo "$keyword" | sed 's/ /+/g')
 
     if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}Mencari game: $keyword ... (latar belakang termux, tidak buka browser langsung)${NC}"
+        echo -e "${C}Mencari game: $keyword ... (background, tidak buka browser)${NC}"
     else
-        echo -e "${C}Searching games: $keyword ... (background, no browser popup)${NC}"
+        echo -e "${C}Searching: $keyword ... (background)${NC}"
     fi
-
-    # JANGAN buka browser langsung - ini yang bikin user malah masuk ke link
-    # Hanya fetch di background via curl (latar belakang termux)
 
     declare -a GAME_IDS
     declare -a GAME_NAMES
     declare -A seen
 
-    # Coba 3 sumber biar pencarian muncul
     for attempt in 1 2 3; do
         local html=""
         if [ $attempt -eq 1 ]; then
-            # Sumber 1: discover page
-            html=$(curl -s -L -A "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36" "https://www.roblox.com/discover/?Keyword=${encoded}" --max-time 10 2>/dev/null)
+            html=$(curl -s -L -A "Mozilla/5.0 (Linux; Android 10)" "https://www.roblox.com/discover/?Keyword=${encoded}" --max-time 10 2>/dev/null)
         elif [ $attempt -eq 2 ]; then
-            # Sumber 2: search page
             html=$(curl -s -L -A "Mozilla/5.0" "https://www.roblox.com/search?Keyword=${encoded}" --max-time 10 2>/dev/null)
         else
-            # Sumber 3: games api list via search.roblox.com
             html=$(curl -s -L -A "Mozilla/5.0" "https://search.roblox.com/catalog/json?Category=All&Keyword=${plus}&MaxRows=100" --max-time 10 2>/dev/null)
-            # API ini return JSON dengan Items yang punya ItemId dan Name
-            # Coba parse JSON kalau ada
-            if echo "$html" | grep -q '"Name"'; then
-                # Parse JSON untuk ID dan Name
-                local json_ids=$(echo "$html" | grep -oE '"AbsoluteUrl":"[^"]+/games/[0-9]+/[^"]+"' | grep -oE '/games/[0-9]+/[^"]+' | head -n 100)
-                if [ -z "$json_ids" ]; then
-                    json_ids=$(echo "$html" | grep -oE '"ItemId":[0-9]+' | head -n 100)
-                fi
-                # Fallback ke parse biasa di bawah
-                if [ -n "$json_ids" ]; then
-                    # Tetap lanjut ke parser umum
-                    html="$html $json_ids"
-                fi
-            fi
         fi
 
-        # Parser 1: /games/ID/Name
         local games_raw=$(echo "$html" | grep -oE '/games/[0-9]+/[^"<> ?&#]+' | head -n 200)
-        # Parser 2: placeId / rootPlaceId
         local place_raw=$(echo "$html" | grep -oE '"(rootPlaceId|placeId)":[0-9]+' | grep -oE '[0-9]+' | head -n 200)
-
-        # Gabungkan
-        local combined="$games_raw"
-        if [ -n "$place_raw" ]; then
-            combined="$combined $place_raw"
-        fi
+        local combined="$games_raw $place_raw"
 
         while IFS= read -r line; do
             [ -z "$line" ] && continue
             local id=""
             local raw_name=""
             local name=""
-
             if echo "$line" | grep -q '/games/'; then
                 id=$(echo "$line" | cut -d'/' -f3)
                 raw_name=$(echo "$line" | cut -d'/' -f4 | cut -d'?' -f1 | cut -d'"' -f1)
                 name=$(echo "$raw_name" | sed 's/-/ /g' | sed 's/_/ /g' | xargs)
                 [ -z "$name" ] && name="Game $id"
             else
-                # Hanya angka ID
                 id=$(echo "$line" | grep -oE '[0-9]+' | head -n1)
                 name="Game $id"
             fi
-
             [ -z "$id" ] && continue
             if [ -z "${seen[$id]}" ]; then
                 seen[$id]=1
@@ -258,20 +252,13 @@ search_roblox_games() {
             fi
         done <<< "$(echo "$combined" | tr ' ' '\n' | sort -u)"
 
-        # Kalau sudah dapat >0, jangan coba sumber lain lagi
         if [ ${#GAME_IDS[@]} -gt 5 ]; then
             break
         fi
     done
 
     if [ ${#GAME_IDS[@]} -eq 0 ]; then
-        if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}Tidak ada game ditemukan untuk: $keyword${NC}"
-            echo -e "${W}Mencoba buka link discover manual...${NC}"
-            echo -e "${W}Link: https://www.roblox.com/discover/?Keyword=${encoded}${NC}"
-        else
-            echo -e "${Y}No games found for: $keyword${NC}"
-        fi
+        echo -e "${Y}Tidak ada game ditemukan untuk: $keyword${NC}"
         sleep 2
         return
     fi
@@ -288,29 +275,21 @@ search_roblox_games() {
 
         if [ "$SELECTED" = "id" ]; then
             echo -e "${C}=== HASIL PENCARIAN ROBLOX ===${NC}"
-            echo -e "${W}Keyword: $keyword | Total: $total game${NC}"
-            echo -e "${W}Menampilkan $((start+1)) sampai $end (max 25 per halaman)${NC}"
+            echo -e "${W}Keyword: $keyword | Total: $total game | Menampilkan $((start+1))-$end${NC}"
         else
             echo -e "${C}=== ROBLOX SEARCH RESULTS ===${NC}"
-            echo -e "${W}Keyword: $keyword | Total: $total${NC}"
-            echo -e "${W}Showing $((start+1)) to $end (max 25 per page)${NC}"
+            echo -e "${W}Keyword: $keyword | Total: $total | Showing $((start+1))-$end${NC}"
         fi
         echo -e "${W}------------------------------${NC}"
-
         for ((i=start; i<end; i++)); do
             num=$((i+1))
             echo -e "${W}${num}. ${G}${GAME_NAMES[$i]}${NC} ${W}- ${GAME_IDS[$i]}${NC}"
         done
-
         echo -e "${W}------------------------------${NC}"
         if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}Ketik nomor (1-infinite) untuk pilih game${NC}"
-            echo -e "${Y}Ketik 'next' untuk lanjut 26-50, 'prev' untuk kembali${NC}"
-            echo -e "${Y}Setelah pilih, 1-25 dihapus, muncul 26-50 dst${NC}"
-            echo -e "${Y}Ketik '0' untuk keluar pencarian${NC}"
+            echo -e "${Y}Ketik nomor (1-infinite) untuk pilih | 'next' untuk 26-50 | 'prev' kembali | '0' keluar${NC}"
         else
-            echo -e "${Y}Type number (1-infinite) to select${NC}"
-            echo -e "${Y}Type 'next' for 26-50, 'prev' to go back, '0' to exit${NC}"
+            echo -e "${Y}Type number (1-infinite) | 'next' 26-50 | 'prev' | '0' exit${NC}"
         fi
         echo ""
         read -p "searchgame> " choice
@@ -337,16 +316,14 @@ search_roblox_games() {
                 idx=$((sel_num-1))
                 sel_id=${GAME_IDS[$idx]}
                 sel_name=${GAME_NAMES[$idx]}
-
                 while true; do
                     clear
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${C}Game dipilih: $sel_name${NC}"
-                        echo -e "${W}ID: $sel_id | Nama: $sel_name ( - jadi spasi )${NC}"
+                        echo -e "${C}Game dipilih: $sel_name - $sel_id${NC}"
                         echo -e "${W}------------------------------${NC}"
                         echo -e "${G}1. play menggunakan ro.blox.com${NC}"
-                        echo -e "${G}2. save ke listjoin (input nama dulu, enter untuk save)${NC}"
-                        echo -e "${G}0. batal / kembali ke pencarian${NC}"
+                        echo -e "${G}2. save ke listjoin (input nama, enter untuk save)${NC}"
+                        echo -e "${G}0. batal${NC}"
                     else
                         echo -e "${C}Selected: $sel_name - $sel_id${NC}"
                         echo -e "${W}------------------------------${NC}"
@@ -357,42 +334,24 @@ search_roblox_games() {
                     echo -e "${W}------------------------------${NC}"
                     read -p "Pilih> " opt
                     case "$opt" in
-                        1)
-                            roblox_join_by_id "$sel_id"
-                            sleep 1
-                            break
-                            ;;
+                        1) roblox_join_by_id "$sel_id"; sleep 1; break ;;
                         2)
                             if [ "$SELECTED" = "id" ]; then
-                                echo -e "${Y}Masukkan nama save (enter untuk pakai '$sel_name')${NC}"
-                                read -p "Nama save: " save_name
+                                read -p "Nama save (enter untuk '$sel_name'): " save_name
                             else
                                 read -p "Save name (enter for '$sel_name'): " save_name
                             fi
                             save_name=$(echo "$save_name" | xargs)
-                            if [ -z "$save_name" ]; then
-                                save_name="$sel_name"
-                            fi
+                            [ -z "$save_name" ] && save_name="$sel_name"
                             save_rbx "$save_name" "$sel_id"
                             sleep 1
                             break
                             ;;
-                        0)
-                            break
-                            ;;
-                        *)
-                            echo -e "${Y}Pilihan tidak valid${NC}"
-                            sleep 1
-                            ;;
+                        0) break ;;
+                        *) echo -e "${Y}Pilihan tidak valid${NC}"; sleep 1 ;;
                     esac
                 done
-            else
-                echo -e "${Y}Nomor tidak valid${NC}"
-                sleep 1
             fi
-        else
-            echo -e "${Y}Input tidak dikenal${NC}"
-            sleep 1
         fi
     done
 }
@@ -437,18 +396,8 @@ exploit_lobby() {
                 ;;
 
             exit|quit|q|keluar|00)
-                clear
-                echo -e "${C}=== ROBLOX LOBBY LENGKAP ===${NC}"
-                echo -e "${W}------------------------------${NC}"
-                echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
-                echo -e "${G}searchgame <keyword> / rbx searchgame${NC} - cari game (max 25, next 26-50)"
-                echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
-                echo -e "${G}save <name> <id> / rbx save${NC} - simpan map"
-                echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
-                echo -e "${G}rmls / rbx rmls${NC} - hapus save"
-                echo -e "${G}exploit${NC} - masuk ke secret exploit lobby"
-                echo -e "${G}exit${NC} - keluar dari Roblox lobby"
-                echo -e "${W}------------------------------${NC}"
+                # Balik ke Roblox lobby dengan bentuk SAMA persis seperti v16 - exploit tidak masuk list tapi masih ada
+                show_roblox_lobby_v16
                 break
                 ;;
 
@@ -460,26 +409,8 @@ exploit_lobby() {
 }
 
 roblox_lobby() {
-    clear
-    echo -e "${C}=== ROBLOX LOBBY LENGKAP - TIDAK HILANG ===${NC}"
-    echo -e "${W}------------------------------${NC}"
-    if [ "$SELECTED" = "id" ]; then
-        echo -e "${W}command lengkap:${NC}"
-        echo -e "${G}playgame <id> / rbx playgame <id>${NC} - join map (ro.blox.com + auto cari server tidak penuh)"
-        echo -e "${G}searchgame <keyword> / rbx searchgame <keyword>${NC} - cari game via https://www.roblox.com/discover/?Keyword=... (max 25, next 26-50, 1-25 dihapus lalu muncul 26-50)"
-        echo -e "${G}playersearch <id> / rbx playersearch <id>${NC} - cari player Roblox"
-        echo -e "${G}save <name> <id> / rbx save <name> <id>${NC} - simpan map (spasi jadi _)"
-        echo -e "${G}listjoin [name/angka] / rbx listjoin${NC} - join dari save pakai nomor"
-        echo -e "${G}rmls [name/angka] / rbx rmls${NC} - hapus save dari database"
-        echo -e "${G}exploit${NC} - masuk ke secret exploit lobby (exp search)"
-        echo -e "${G}exit${NC} - keluar dari Roblox lobby ke menu utama"
-    else
-        echo -e "${W}complete commands:${NC}"
-        echo -e "${G}playgame <id>${NC} - join map"
-        echo -e "${G}searchgame <keyword>${NC} - search game via discover (max 25, next 26-50)"
-        echo -e "${G}save / listjoin / rmls / exploit / exit${NC}"
-    fi
-    echo -e "${W}------------------------------${NC}"
+    # Tampilkan bentuk mirip v16 - sama di semua tempat
+    show_roblox_lobby_v16
 
     while true; do
         echo ""
@@ -498,31 +429,19 @@ roblox_lobby() {
                 else
                     roblox_join_by_id "$rid"
                 fi
-                # JANGAN clear lobby biar tidak hilang
-                echo -e "${W}--- Roblox lobby tetap ada ---${NC}"
+                echo -e "${W}--- Roblox lobby tetap ada (tidak hilang) ---${NC}"
+                sleep 1
+                show_roblox_lobby_v16
                 ;;
 
             rbx\ searchgame* | searchgame* )
                 keyword=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?searchgame[ ]*//I' | xargs)
                 if [ -z "$keyword" ]; then
-                    if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Contoh: searchgame steal an egg${NC}"
-                        echo -e "${Y}Contoh: rbx searchgame blox fruit${NC}"
-                    else
-                        echo -e "${Y}Example: searchgame steal an egg${NC}"
-                    fi
+                    echo -e "${Y}Contoh: searchgame steal an egg${NC}"
                 else
                     search_roblox_games "$keyword"
-                    clear
-                    echo -e "${C}=== ROBLOX LOBBY LENGKAP - KEMBALI ===${NC}"
-                    echo -e "${W}------------------------------${NC}"
-                    echo -e "${G}playgame <id> - join map${NC}"
-                    echo -e "${G}searchgame <keyword> - cari game${NC}"
-                    echo -e "${G}listjoin - join dari save${NC}"
-                    echo -e "${G}rmls - hapus save${NC}"
-                    echo -e "${G}exploit - secret lobby${NC}"
-                    echo -e "${G}exit - keluar${NC}"
-                    echo -e "${W}------------------------------${NC}"
+                    # Setelah search selesai, tampilkan lagi bentuk SAMA persis v16
+                    show_roblox_lobby_v16
                 fi
                 ;;
 
@@ -534,6 +453,7 @@ roblox_lobby() {
                     termux-open-url "${ROBLOX_PLAYER_URL}${rid}/profile" >/dev/null 2>&1
                     am start -a android.intent.action.VIEW -d "${ROBLOX_PLAYER_DEEP}${rid}" >/dev/null 2>&1
                 fi
+                show_roblox_lobby_v16
                 ;;
 
             rbx\ save* | save* )
@@ -542,67 +462,73 @@ roblox_lobby() {
                     read -p "Masukkan nama save: " sname_in
                     read -p "Masukkan ID map: " sid_in
                     save_rbx "$sname_in" "$sid_in"
-                    continue
-                fi
-                sid=$(echo "$save_args" | awk '{print $NF}')
-                if ! echo "$sid" | grep -Eq '^[0-9]+$'; then
-                    read -p "Masukkan nama save: " sname_in
-                    read -p "Masukkan ID map: " sid_in
-                    save_rbx "$sname_in" "$sid_in"
                 else
-                    sname=$(echo "$save_args" | rev | cut -d' ' -f2- | rev | xargs)
-                    save_rbx "$sname" "$sid"
+                    sid=$(echo "$save_args" | awk '{print $NF}')
+                    if ! echo "$sid" | grep -Eq '^[0-9]+$'; then
+                        read -p "Masukkan nama save: " sname_in
+                        read -p "Masukkan ID map: " sid_in
+                        save_rbx "$sname_in" "$sid_in"
+                    else
+                        sname=$(echo "$save_args" | rev | cut -d' ' -f2- | rev | xargs)
+                        save_rbx "$sname" "$sid"
+                    fi
                 fi
+                show_roblox_lobby_v16
                 ;;
 
             rbx\ listjoin* | listjoin* )
                 arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?listjoin[ ]*//I' | xargs)
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
                     echo -e "${Y}Belum ada save-an${NC}"
-                    continue
-                fi
-                if [ -z "$arg" ]; then
-                    list_rbx
-                    echo ""
-                    read -p "Masukkan angka save: " num
-                    join_id=$(get_rbx_by_num "$num")
-                    [ -z "$join_id" ] && echo -e "${R}Nomor tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                 else
-                    if echo "$arg" | grep -Eq '^[0-9]+$'; then
-                        join_id=$(get_rbx_by_num "$arg")
+                    if [ -z "$arg" ]; then
+                        list_rbx
+                        echo ""
+                        read -p "Masukkan angka save: " num
+                        join_id=$(get_rbx_by_num "$num")
+                        [ -z "$join_id" ] && echo -e "${R}Nomor tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                     else
-                        join_id=$(get_rbx_by_name "$arg")
+                        if echo "$arg" | grep -Eq '^[0-9]+$'; then
+                            join_id=$(get_rbx_by_num "$arg")
+                        else
+                            join_id=$(get_rbx_by_name "$arg")
+                        fi
+                        [ -z "$join_id" ] && echo -e "${R}Save tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                     fi
-                    [ -z "$join_id" ] && echo -e "${R}Save tidak ditemukan${NC}" || roblox_join_by_id "$join_id"
                 fi
+                sleep 1
+                show_roblox_lobby_v16
                 ;;
 
             rbx\ rmls* | rmls* )
                 if [ ! -f "$SAVE_FILE" ] || [ ! -s "$SAVE_FILE" ]; then
                     echo -e "${Y}Belum ada save-an${NC}"
-                    continue
-                fi
-                arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?rmls[ ]*//I' | xargs)
-                if [ -z "$arg" ]; then
-                    list_rbx
-                    echo ""
-                    read -p "Masukkan angka yang mau dihapus: " delnum
-                    if echo "$delnum" | grep -Eq '^[0-9]+$'; then
-                        sed -i "${delnum}d" "$SAVE_FILE"
-                        echo -e "${G}Dihapus nomor $delnum${NC}"
-                    fi
                 else
-                    if echo "$arg" | grep -Eq '^[0-9]+$'; then
-                        sed -i "${arg}d" "$SAVE_FILE"
-                        echo -e "${G}Dihapus nomor $arg${NC}"
+                    arg=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?rmls[ ]*//I' | xargs)
+                    if [ -z "$arg" ]; then
+                        list_rbx
+                        echo ""
+                        read -p "Masukkan angka yang mau dihapus: " delnum
+                        if echo "$delnum" | grep -Eq '^[0-9]+$'; then
+                            sed -i "${delnum}d" "$SAVE_FILE"
+                            echo -e "${G}Dihapus nomor $delnum${NC}"
+                        fi
                     else
-                        delete_rbx_by_name "$arg"
-                        echo -e "${G}Dihapus: $arg${NC}"
+                        if echo "$arg" | grep -Eq '^[0-9]+$'; then
+                            sed -i "${arg}d" "$SAVE_FILE"
+                            echo -e "${G}Dihapus nomor $arg${NC}"
+                        else
+                            delete_rbx_by_name "$arg"
+                            echo -e "${G}Dihapus: $arg${NC}"
+                        fi
                     fi
                 fi
+                sleep 1
+                show_roblox_lobby_v16
                 ;;
 
             exploit )
+                # Secret command - tidak masuk ke list Roblox lobby tapi masih ada
                 exploit_lobby
                 ;;
 
@@ -613,7 +539,10 @@ roblox_lobby() {
                 ;;
 
             *)
-                echo -e "${Y}Command tidak dikenal di Roblox lobby (lengkap). Ketik: playgame, searchgame, listjoin, rmls, exploit, exit${NC}"
+                echo -e "${Y}Command tidak dikenal di Roblox lobby${NC}"
+                echo -e "${Y}Gunakan: playgame, searchgame, playersearch, save, listjoin, rmls, exit (exploit = rahasia)${NC}"
+                sleep 1
+                show_roblox_lobby_v16
                 ;;
         esac
     done
@@ -651,13 +580,7 @@ run_fileman() {
         fi
 
         echo -e "${W}------------------------------${NC}"
-        if [ "$SELECTED" = "id" ]; then
-            echo -e "${Y}Ketik angka 1-infinite untuk pilih file/folder${NC}"
-            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar${NC}"
-        else
-            echo -e "${Y}Type number 1-infinite to select${NC}"
-            echo -e "${Y}Type 00 to go back, 0 to exit${NC}"
-        fi
+        echo -e "${Y}Ketik angka 1-infinite untuk pilih | 00 kembali | 0 keluar${NC}"
         echo ""
 
         read -p "fileman> " finp
@@ -725,11 +648,7 @@ run_fileman() {
                                 break
                                 ;;
                             2)
-                                if [ "$SELECTED" = "id" ]; then
-                                    read -p "Yakin hapus $sel? (y/n): " conf
-                                else
-                                    read -p "Delete $sel? (y/n): " conf
-                                fi
+                                read -p "Yakin hapus $sel? (y/n): " conf
                                 if [ "$conf" = "y" ] || [ "$conf" = "Y" ]; then
                                     rm -rf "$tpath"
                                     echo -e "${G}Dihapus${NC}"
@@ -807,12 +726,7 @@ run_fileman() {
                                 break
                                 ;;
                             5)
-                                if [ "$SELECTED" = "id" ]; then
-                                    echo -e "${Y}Nama lama: $sel${NC}"
-                                    read -p "Masukkan nama baru: " newname
-                                else
-                                    read -p "Enter new name: " newname
-                                fi
+                                read -p "Masukkan nama baru: " newname
                                 newname=$(echo "$newname" | xargs)
                                 if [ -n "$newname" ]; then
                                     mv "$tpath" "$(dirname "$tpath")/$newname"
@@ -821,13 +735,8 @@ run_fileman() {
                                 fi
                                 break
                                 ;;
-                            0)
-                                break
-                                ;;
-                            *)
-                                echo -e "${Y}Pilihan tidak valid${NC}"
-                                sleep 1
-                                ;;
+                            0) break ;;
+                            *) echo -e "${Y}Pilihan tidak valid${NC}"; sleep 1 ;;
                         esac
                     done
                 fi
