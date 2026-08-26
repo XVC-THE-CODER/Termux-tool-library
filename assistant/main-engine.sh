@@ -125,10 +125,7 @@ show_roblox_help() {
         echo -e "${G}6. help${NC} - panduan ini"
         echo -e "${W}   EN: show full & short usage${NC}"
         echo -e ""
-        echo -e "${G}7. exploit${NC} - rahasia"
-        echo -e "${W}   EN: secret exploit lobby${NC}"
-        echo -e ""
-        echo -e "${G}8. exit${NC} - keluar lobby"
+        echo -e "${G}7. exit${NC} - keluar lobby"
         echo -e "${W}   EN: exit lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${Y}Catatan: command tanpa rbx tetap bisa dipakai walau tidak ditampilkan${NC}"
@@ -155,15 +152,17 @@ show_roblox_help() {
         echo -e ""
         echo -e "${G}6. help${NC} - this guide"
         echo -e ""
-        echo -e "${G}7. exploit${NC} - secret"
-        echo -e ""
-        echo -e "${G}8. exit${NC} - exit lobby"
+        echo -e "${G}7. exit${NC} - exit lobby"
         echo -e "${W}------------------------------${NC}"
         echo -e "${Y}Note: instant commands without rbx still work${NC}"
         echo -e "${W}------------------------------${NC}"
     fi
     echo ""
-    read -p "Tekan ENTER untuk kembali / Press ENTER to back: " _
+    if [ "$SELECTED" = "id" ]; then
+        read -p "Tekan ENTER untuk kembali: " _
+    else
+        read -p "Press ENTER to back: " _
+    fi
     show_roblox_lobby_v16
 }
 find_available_server() {
@@ -410,7 +409,11 @@ roblox_lobby() {
                 break
                 ;;
             *)
-                echo -e "${Y}Command tidak dikenal. Ketik 'help' untuk panduan${NC}"
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${Y}Command tidak dikenal. Ketik 'help' untuk panduan${NC}"
+                else
+                    echo -e "${Y}Unknown command. Type 'help' for guide${NC}"
+                fi
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
@@ -444,7 +447,13 @@ run_fileman() {
             done
         fi
         echo -e "${W}------------------------------${NC}"
-        echo -e "${Y}angka=pilih | 00=kembali | 0=keluar${NC}"
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${Y}Ketik angka 1-infinite untuk pilih file/folder${NC}"
+            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar (hidden tetap tersembunyi)${NC}"
+        else
+            echo -e "${Y}Type number 1-infinite to select file/folder${NC}"
+            echo -e "${Y}Type 00 to go back, 0 to exit (hidden stays hidden)${NC}"
+        fi
         echo ""
         read -p "fileman> " finp
         finp_trim=$(echo "$finp" | xargs)
@@ -550,7 +559,15 @@ run_fileman() {
                                         done
                                     fi
                                     echo -e "${W}------------------------------${NC}"
-                                    echo -e "${Y}angka=masuk | 00=mundur | 0=pindahkan ke sini${NC}"
+                                    if [ "$SELECTED" = "id" ]; then
+                                        echo -e "${Y}Ketik angka untuk masuk folder${NC}"
+                                        echo -e "${Y}Ketik 00 untuk mundur ke folder sebelumnya${NC}"
+                                        echo -e "${Y}Ketik 0 untuk pindahkan file ke folder ini${NC}"
+                                    else
+                                        echo -e "${Y}Type number to enter folder${NC}"
+                                        echo -e "${Y}Type 00 to go back${NC}"
+                                        echo -e "${Y}Type 0 to move file to this folder${NC}"
+                                    fi
                                     echo ""
                                     read -p "move> " minp
                                     minp_trim=$(echo "$minp" | xargs)
