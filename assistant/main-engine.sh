@@ -134,7 +134,11 @@ save_rbx() {
     grep -v "^${name}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp" || true
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null || true
     echo "${name}|${id}" >> "$SAVE_FILE"
-    echo -e "${G}Disimpan: $name -> $id${NC}"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${G}Disimpan: $name -> $id${NC}"
+    else
+        echo -e "${G}Saved: $name -> $id${NC}"
+    fi
 }
 
 list_rbx() {
@@ -168,6 +172,192 @@ delete_rbx_by_name() {
     local sname=$(echo "$1" | sed 's/ /_/g')
     grep -v -i "^${sname}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp"
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null
+}
+
+search_roblox_games() {
+    local keyword="$1"
+    [ -z "$keyword" ] && return
+
+    local encoded=$(echo "$keyword" | sed 's/ /%20/g')
+    local url="https://www.roblox.com/discover/?Keyword=${encoded}"
+
+    # Buka link sebagai latar belakang termux
+    termux-open-url "$url" >/dev/null 2>&1 &
+    am start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 &
+
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${C}Mencari game: $keyword ...${NC}"
+        echo -e "${W}Link: $url (dibuka di background)${NC}"
+    else
+        echo -e "${C}Searching games: $keyword ...${NC}"
+        echo -e "${W}Link: $url (opened in background)${NC}"
+    fi
+
+    sleep 1
+
+    # Ambil halaman discover
+    local html=$(curl -s -L -A "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36" "$url" --max-time 12 2>/dev/null)
+
+    # Parse /games/ID/Name
+    local games_raw=$(echo "$html" | grep -oE '/games/[0-9]+/[^"<> ?&#]+' | head -n 200)
+
+    # Fallback coba search page biasa kalau discover kosong
+    if [ -z "$games_raw" ]; then
+        local search_url="https://www.roblox.com/search?Keyword=${encoded}"
+        local html2=$(curl -s -L -A "Mozilla/5.0" "$search_url" --max-time 12 2>/dev/null)
+        games_raw=$(echo "$html2" | grep -oE '/games/[0-9]+/[^"<> ?&#]+' | head -n 200)
+    fi
+
+    declare -a GAME_IDS
+    declare -a GAME_NAMES
+    declare -A seen
+
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        id=$(echo "$line" | cut -d'/' -f3)
+        raw_name=$(echo "$line" | cut -d'/' -f4 | cut -d'?' -f1)
+        # Ganti - jadi spasi
+        name=$(echo "$raw_name" | sed 's/-/ /g' | xargs)
+        [ -z "$id" ] && continue
+        [ -z "$name" ] && name="Game $id"
+        if [ -z "${seen[$id]}" ]; then
+            seen[$id]=1
+            GAME_IDS+=("$id")
+            GAME_NAMES+=("$name")
+        fi
+    done <<< "$games_raw"
+
+    if [ ${#GAME_IDS[@]} -eq 0 ]; then
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${Y}Tidak ada game ditemukan untuk: $keyword${NC}"
+        else
+            echo -e "${Y}No games found for: $keyword${NC}"
+        fi
+        sleep 2
+        return
+    fi
+
+    local page=0
+    local page_size=25
+    local total=${#GAME_IDS[@]}
+
+    while true; do
+        clear
+        local start=$((page*page_size))
+        local end=$((start+page_size))
+        [ $end -gt $total ] && end=$total
+
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${C}Hasil pencarian: $keyword (Total: $total)${NC}"
+            echo -e "${W}Menampilkan $((start+1)) sampai $end${NC}"
+        else
+            echo -e "${C}Search results: $keyword (Total: $total)${NC}"
+            echo -e "${W}Showing $((start+1)) to $end${NC}"
+        fi
+        echo -e "${W}------------------------------${NC}"
+
+        for ((i=start; i<end; i++)); do
+            num=$((i+1))
+            # Di sebelah angka ada nama game, di sebelah kanan id game, - sudah jadi spasi
+            echo -e "${W}${num}. ${G}${GAME_NAMES[$i]}${NC} ${W}- ${GAME_IDS[$i]}${NC}"
+        done
+
+        echo -e "${W}------------------------------${NC}"
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${Y}Ketik nomor game (1-infinite) untuk pilih${NC}"
+            echo -e "${Y}Ketik 'next' / 'lanjut' untuk 26-50, 'prev' untuk kembali, '0' untuk keluar${NC}"
+            echo -e "${Y}Max 25 per halaman, setelah pilih, 1-25 dihapus, muncul 26-50 dst${NC}"
+        else
+            echo -e "${Y}Type game number (1-infinite) to select${NC}"
+            echo -e "${Y}Type 'next' for 26-50, 'prev' to go back, '0' to exit${NC}"
+        fi
+        echo ""
+        read -p "searchgame> " choice
+        choice=$(echo "$choice" | xargs | tr '[:upper:]' '[:lower:]')
+
+        if [ "$choice" = "0" ] || [ "$choice" = "exit" ] || [ "$choice" = "q" ]; then
+            break
+        elif [ "$choice" = "next" ] || [ "$choice" = "lanjut" ] || [ "$choice" = "more" ] || [ "$choice" = "26" ]; then
+            if [ $end -lt $total ]; then
+                page=$((page+1))
+            else
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${Y}Sudah di halaman terakhir${NC}"
+                else
+                    echo -e "${Y}Already at last page${NC}"
+                fi
+                sleep 1
+            fi
+            continue
+        elif [ "$choice" = "prev" ] || [ "$choice" = "kembali" ] || [ "$choice" = "back" ]; then
+            if [ $page -gt 0 ]; then
+                page=$((page-1))
+            fi
+            continue
+        elif echo "$choice" | grep -Eq '^[0-9]+$'; then
+            sel_num=$choice
+            if [ $sel_num -ge 1 ] && [ $sel_num -le $total ]; then
+                idx=$((sel_num-1))
+                sel_id=${GAME_IDS[$idx]}
+                sel_name=${GAME_NAMES[$idx]}
+
+                while true; do
+                    clear
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${C}Game dipilih: $sel_name - $sel_id${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                        echo -e "${G}1. play menggunakan ro.blox.com${NC}"
+                        echo -e "${G}2. save ke listjoin (input nama dulu)${NC}"
+                        echo -e "${G}0. batal / kembali ke pencarian${NC}"
+                    else
+                        echo -e "${C}Selected game: $sel_name - $sel_id${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                        echo -e "${G}1. play using ro.blox.com${NC}"
+                        echo -e "${G}2. save to listjoin${NC}"
+                        echo -e "${G}0. cancel / back to search${NC}"
+                    fi
+                    echo -e "${W}------------------------------${NC}"
+                    read -p "Pilih> " opt
+                    case "$opt" in
+                        1)
+                            roblox_join_by_id "$sel_id"
+                            sleep 1
+                            break
+                            ;;
+                        2)
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${Y}Masukkan nama save (enter untuk pakai nama asli: $sel_name)${NC}"
+                                read -p "Nama save: " save_name
+                            else
+                                echo -e "${Y}Enter save name (enter to use original: $sel_name)${NC}"
+                                read -p "Save name: " save_name
+                            fi
+                            save_name=$(echo "$save_name" | xargs)
+                            if [ -z "$save_name" ]; then
+                                save_name="$sel_name"
+                            fi
+                            save_rbx "$save_name" "$sel_id"
+                            sleep 1
+                            break
+                            ;;
+                        0)
+                            break
+                            ;;
+                        *)
+                            echo -e "${Y}Pilihan tidak valid${NC}"
+                            sleep 1
+                            ;;
+                    esac
+                done
+            else
+                echo -e "${Y}Nomor tidak valid${NC}"
+                sleep 1
+            fi
+        else
+            echo -e "${Y}Input tidak dikenal${NC}"
+            sleep 1
+        fi
+    done
 }
 
 exploit_lobby() {
@@ -225,16 +415,17 @@ exploit_lobby() {
                 if [ "$SELECTED" = "id" ]; then
                     echo -e "${C}Roblox lobby${NC}"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${G}playgame <id> / rbx playgame${NC} - join map"
+                    echo -e "${G}playgame / rbx playgame${NC} - join map"
                     echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
+                    echo -e "${G}searchgame / rbx searchgame${NC} - cari game via discover"
                     echo -e "${G}rmls / rbx rmls${NC} - hapus save"
                     echo -e "${G}exit${NC} - keluar"
                     echo -e "${W}------------------------------${NC}"
                 else
                     echo -e "${C}Roblox lobby${NC}"
                     echo -e "${W}------------------------------${NC}"
-                    echo -e "${G}playgame <id>${NC} - join map"
-                    echo -e "${G}listjoin${NC} - join from save"
+                    echo -e "${G}playgame${NC} - join map"
+                    echo -e "${G}searchgame${NC} - search game"
                     echo -e "${W}------------------------------${NC}"
                 fi
                 break
@@ -258,6 +449,7 @@ roblox_lobby() {
         echo -e "${W}------------------------------${NC}"
         echo -e "${W}command${NC}"
         echo -e "${G}playgame <id> / rbx playgame${NC} - join map (auto server tidak penuh)"
+        echo -e "${G}searchgame <keyword> / rbx searchgame${NC} - cari game di discover (max 25 per halaman)"
         echo -e "${G}playersearch / rbx playersearch${NC} - cari player"
         echo -e "${G}save <name> <id> / rbx save${NC} - simpan map"
         echo -e "${G}listjoin / rbx listjoin${NC} - join dari save"
@@ -268,6 +460,7 @@ roblox_lobby() {
         echo -e "${C}Roblox lobby${NC}"
         echo -e "${W}------------------------------${NC}"
         echo -e "${G}playgame <id>${NC} - join map"
+        echo -e "${G}searchgame <keyword>${NC} - search game via discover"
         echo -e "${G}listjoin${NC} - join from save"
         echo -e "${G}rmls${NC} - delete save"
         echo -e "${W}------------------------------${NC}"
@@ -289,6 +482,32 @@ roblox_lobby() {
                     echo -e "${Y}Contoh: playgame 2753915549${NC}"
                 else
                     roblox_join_by_id "$rid"
+                fi
+                ;;
+
+            rbx\ searchgame* | searchgame* )
+                keyword=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?searchgame[ ]*//I' | xargs)
+                if [ -z "$keyword" ]; then
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Contoh: searchgame steal an egg${NC}"
+                        echo -e "${Y}Contoh: rbx searchgame blox fruit${NC}"
+                    else
+                        echo -e "${Y}Example: searchgame steal an egg${NC}"
+                    fi
+                else
+                    search_roblox_games "$keyword"
+                    clear
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${C}Roblox lobby${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                        echo -e "${G}playgame / searchgame / listjoin / rmls / exit${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                    else
+                        echo -e "${C}Roblox lobby${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                        echo -e "${G}playgame / searchgame / listjoin / rmls / exit${NC}"
+                        echo -e "${W}------------------------------${NC}"
+                    fi
                 fi
                 ;;
 
@@ -415,10 +634,10 @@ run_fileman() {
         echo -e "${W}------------------------------${NC}"
         if [ "$SELECTED" = "id" ]; then
             echo -e "${Y}Ketik angka 1-infinite untuk pilih file/folder${NC}"
-            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar (hidden tetap tersembunyi)${NC}"
+            echo -e "${Y}Ketik 00 untuk kembali, 0 untuk keluar${NC}"
         else
-            echo -e "${Y}Type number 1-infinite to select file/folder${NC}"
-            echo -e "${Y}Type 00 to go back, 0 to exit (hidden stays hidden)${NC}"
+            echo -e "${Y}Type number 1-infinite to select${NC}"
+            echo -e "${Y}Type 00 to go back, 0 to exit${NC}"
         fi
         echo ""
 
@@ -452,7 +671,6 @@ run_fileman() {
                 if [ -d "$tpath" ]; then
                     CUR_DIR="$tpath"
                 else
-                    # File dipilih - tampilkan pilihan 1. open 2. delete 3. dupe 4. move 0. cancel
                     while true; do
                         clear
                         echo -e "${C}File: $sel${NC}"
@@ -463,12 +681,14 @@ run_fileman() {
                             echo -e "${W}2. hapus${NC}"
                             echo -e "${W}3. duplikat${NC}"
                             echo -e "${W}4. pindah (move)${NC}"
+                            echo -e "${W}5. ganti nama (rename)${NC}"
                             echo -e "${W}0. batal${NC}"
                         else
                             echo -e "${W}1. open${NC}"
                             echo -e "${W}2. delete${NC}"
                             echo -e "${W}3. dupe${NC}"
                             echo -e "${W}4. move${NC}"
+                            echo -e "${W}5. rename${NC}"
                             echo -e "${W}0. cancel${NC}"
                         fi
                         echo -e "${W}------------------------------${NC}"
@@ -517,7 +737,6 @@ run_fileman() {
                                 break
                                 ;;
                             4)
-                                # MODE MOVE - pindah file ke folder lain
                                 ORIG_FILE="$tpath"
                                 DEST_DIR="$CUR_DIR"
                                 while true; do
@@ -526,14 +745,12 @@ run_fileman() {
                                         echo -e "${C}Pindah File: $(basename "$ORIG_FILE")${NC}"
                                         echo -e "${W}Asal: $ORIG_FILE${NC}"
                                         echo -e "${W}Tujuan sekarang: $DEST_DIR${NC}"
-                                        echo -e "${W}------------------------------${NC}"
                                     else
                                         echo -e "${C}Move File: $(basename "$ORIG_FILE")${NC}"
                                         echo -e "${W}From: $ORIG_FILE${NC}"
                                         echo -e "${W}Current dest: $DEST_DIR${NC}"
-                                        echo -e "${W}------------------------------${NC}"
                                     fi
-
+                                    echo -e "${W}------------------------------${NC}"
                                     mapfile -t MOVE_ENTRIES < <(ls "$DEST_DIR" 2>/dev/null)
                                     if [ ${#MOVE_ENTRIES[@]} -eq 0 ]; then
                                         echo -e "${Y}Folder kosong${NC}"
@@ -548,32 +765,25 @@ run_fileman() {
                                             i=$((i+1))
                                         done
                                     fi
-
                                     echo -e "${W}------------------------------${NC}"
                                     if [ "$SELECTED" = "id" ]; then
                                         echo -e "${Y}Ketik angka untuk masuk folder${NC}"
-                                        echo -e "${Y}Ketik 00 untuk mundur ke folder sebelumnya${NC}"
+                                        echo -e "${Y}Ketik 00 untuk mundur${NC}"
                                         echo -e "${Y}Ketik 0 untuk pindahkan file ke folder ini${NC}"
                                     else
                                         echo -e "${Y}Type number to enter folder${NC}"
                                         echo -e "${Y}Type 00 to go back${NC}"
-                                        echo -e "${Y}Type 0 to move file to this folder${NC}"
+                                        echo -e "${Y}Type 0 to move file here${NC}"
                                     fi
                                     echo ""
                                     read -p "move> " minp
                                     minp_trim=$(echo "$minp" | xargs)
-
                                     if [ "$minp_trim" = "0" ]; then
                                         mv "$ORIG_FILE" "$DEST_DIR/"
-                                        if [ "$SELECTED" = "id" ]; then
-                                            echo -e "${G}File dipindahkan ke $DEST_DIR${NC}"
-                                        else
-                                            echo -e "${G}File moved to $DEST_DIR${NC}"
-                                        fi
+                                        echo -e "${G}File dipindahkan ke $DEST_DIR${NC}"
                                         sleep 1
                                         break
                                     fi
-
                                     if [ "$minp_trim" = "00" ]; then
                                         if [ "$DEST_DIR" = "/sdcard" ] || [ "$DEST_DIR" = "/storage/emulated/0" ] || [ "$DEST_DIR" = "$HOME" ] || [ "$DEST_DIR" = "/" ]; then
                                             continue
@@ -582,7 +792,6 @@ run_fileman() {
                                             continue
                                         fi
                                     fi
-
                                     if echo "$minp_trim" | grep -Eq '^[0-9]+$'; then
                                         mnum=$minp_trim
                                         if [ "$mnum" -ge 1 ] && [ "$mnum" -le ${#MOVE_ENTRIES[@]} ]; then
@@ -594,6 +803,26 @@ run_fileman() {
                                         fi
                                     fi
                                 done
+                                break
+                                ;;
+                            5)
+                                if [ "$SELECTED" = "id" ]; then
+                                    echo -e "${Y}Nama lama: $sel${NC}"
+                                    read -p "Masukkan nama baru: " newname
+                                else
+                                    echo -e "${Y}Old name: $sel${NC}"
+                                    read -p "Enter new name: " newname
+                                fi
+                                newname=$(echo "$newname" | xargs)
+                                if [ -n "$newname" ]; then
+                                    mv "$tpath" "$(dirname "$tpath")/$newname"
+                                    if [ "$SELECTED" = "id" ]; then
+                                        echo -e "${G}Berhasil ganti nama jadi $newname${NC}"
+                                    else
+                                        echo -e "${G}Renamed to $newname${NC}"
+                                    fi
+                                    sleep 1
+                                fi
                                 break
                                 ;;
                             0)
@@ -613,11 +842,7 @@ run_fileman() {
 
 run_antilag() {
     clear
-    if [ "$SELECTED" = "id" ]; then
-        echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
-    else
-        echo -e "${C}Running latest boost-performance tool...${NC}"
-    fi
+    echo -e "${C}Menjalankan tool boost-performance terbaru...${NC}"
     cd ~
     rm -rf Termux-tool-library 2>/dev/null
     pkg update -y
