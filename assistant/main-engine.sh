@@ -32,6 +32,38 @@ auto_line() {
     fi
     printf '═%.0s' $(seq 1 $cols)
 }
+auto_box_top() {
+    local cols=$(tput cols 2>/dev/null)
+    if [ -z "$cols" ]; then
+        cols=${COLUMNS:-60}
+    fi
+    if [ "$cols" -gt 120 ]; then
+        cols=120
+    fi
+    if [ "$cols" -lt 20 ]; then
+        cols=30
+    fi
+    local inner=$((cols - 2))
+    printf '╔'
+    printf '═%.0s' $(seq 1 $inner)
+    printf '╗'
+}
+auto_box_bottom() {
+    local cols=$(tput cols 2>/dev/null)
+    if [ -z "$cols" ]; then
+        cols=${COLUMNS:-60}
+    fi
+    if [ "$cols" -gt 120 ]; then
+        cols=120
+    fi
+    if [ "$cols" -lt 20 ]; then
+        cols=30
+    fi
+    local inner=$((cols - 2))
+    printf '╚'
+    printf '═%.0s' $(seq 1 $inner)
+    printf '╝'
+}
 choose_lang() {
     clear
     echo -e "${C}$(auto_line)${NC}"
@@ -63,13 +95,24 @@ show_sel() {
 show_cmd() {
     clear
     local line=$(auto_line)
-    echo -e "${M}╔${line:0:58}╗${NC}"
-    echo -e "${M}║${NC} ${M} █████  ███████ ████████ ███████ ███   █ ████████${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}██   ██ ██         ██    ██      ████  █    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}███████ ███████    ██    ███████ ██ ██ █    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}██   ██      ██    ██         ██ ██  ███    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}██   ██ ███████    ██    ███████ ██   ██    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}╚${line:0:58}╝${NC}"
+    local cols=$(tput cols 2>/dev/null)
+    if [ -z "$cols" ]; then cols=${COLUMNS:-60}; fi
+    if [ "$cols" -gt 120 ]; then cols=120; fi
+    if [ "$cols" -lt 20 ]; then cols=30; fi
+    local inner=$((cols - 2))
+    echo -e "${M}$(auto_box_top)${NC}"
+    local c1=" █████  ███████ ████████ ███████ ███   █ ████████"
+    local c2="██   ██ ██         ██    ██      ████  █    ██   "
+    local c3="███████ ███████    ██    ███████ ██ ██ █    ██   "
+    local c4="██   ██      ██    ██         ██ ██  ███    ██   "
+    local c5="██   ██ ███████    ██    ███████ ██   ██    ██   "
+    for c in "$c1" "$c2" "$c3" "$c4" "$c5"; do
+        local clen=${#c}
+        local pad=$((inner - clen - 2))
+        if [ $pad -lt 0 ]; then pad=0; fi
+        printf "${M}║ ${NC}${M}%s${NC}%${pad}s${M} ║${NC}\n" "$c" ""
+    done
+    echo -e "${M}$(auto_box_bottom)${NC}"
     echo -e "${W}${line}${NC}"
     echo -e "${C}command${NC}"
     echo -e "${C}assistant 1.2${NC}"
@@ -96,13 +139,23 @@ show_cmd() {
 show_assistant_help() {
     clear
     local line=$(auto_line)
-    echo -e "${M}╔${line:0:58}╗${NC}"
-    echo -e "${M}║${NC} ${M} █████  ███████ ████████ ███████ ███   █ ████████${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}██   ██ ██         ██    ██      ████  █    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}███████ ███████    ██    ███████ ██ ██ █    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}██   ██      ██    ██         ██ ██  ███    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}║${NC} ${M}██   ██ ███████    ██    ███████ ██   ██    ██   ${NC} ${M}║${NC}"
-    echo -e "${M}╚${line:0:58}╝${NC}"
+    local cols=$(tput cols 2>/dev/null)
+    if [ -z "$cols" ]; then cols=${COLUMNS:-60}; fi
+    if [ "$cols" -gt 120 ]; then cols=120; fi
+    if [ "$cols" -lt 20 ]; then cols=30; fi
+    echo -e "${M}$(auto_box_top)${NC}"
+    local c1=" █████  ███████ ████████ ███████ ███   █ ████████"
+    local c2="██   ██ ██         ██    ██      ████  █    ██   "
+    local c3="███████ ███████    ██    ███████ ██ ██ █    ██   "
+    local c4="██   ██      ██    ██         ██ ██  ███    ██   "
+    local c5="██   ██ ███████    ██    ███████ ██   ██    ██   "
+    for c in "$c1" "$c2" "$c3" "$c4" "$c5"; do
+        local clen=${#c}
+        local pad=$((cols - 2 - clen - 2))
+        if [ $pad -lt 0 ]; then pad=0; fi
+        printf "${M}║ ${NC}${M}%s${NC}%${pad}s${M} ║${NC}\n" "$c" ""
+    done
+    echo -e "${M}$(auto_box_bottom)${NC}"
     echo -e "${W}${line}${NC}"
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}=== PANDUAN ASSISTANT - FULL & SINGKAT ===${NC}"
@@ -928,7 +981,8 @@ show_sel
 show_cmd
 while true; do
     echo ""
-    read -p "assistant> " cmd
+    echo -e "${C}┏━[assistant]┫${NC}"
+    read -p "┗━<$ " cmd
     [ -z "$cmd" ] && continue
     full=$(norm "$cmd")
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
