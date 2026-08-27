@@ -347,14 +347,14 @@ exploit_lobby() {
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}rahasia - tidak ada di list Roblox lobby${NC}"
         echo -e "${W}${line}${NC}"
-        echo -e "${G}exp search <keyword>${NC} - cari script"
+        echo -e "${G}exp search <keyword>${NC} - cari script (2 pilihan)"
         echo -e "${G}exit${NC} - kembali"
         echo -e "${W}${line}${NC}"
     else
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}secret - not in Roblox lobby list${NC}"
         echo -e "${W}${line}${NC}"
-        echo -e "${G}exp search <keyword>${NC} - search script"
+        echo -e "${G}exp search <keyword>${NC} - search script (2 choices)"
         echo -e "${G}exit${NC} - back"
         echo -e "${W}${line}${NC}"
     fi
@@ -369,20 +369,58 @@ exploit_lobby() {
             exp\ search* )
                 if [ -z "$earg" ]; then
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Contoh: exp search speed hub x${NC}"
+                        echo -e "${Y}Contoh: exp search Steal an Egg${NC}"
                     else
-                        echo -e "${Y}Example: exp search speed hub x${NC}"
+                        echo -e "${Y}Example: exp search Steal an Egg${NC}"
                     fi
                 else
                     search_plus=$(echo "$earg" | sed 's/ /+/g')
-                    link="https://scriptblox.com/?q=${search_plus}"
+                    search_enc=$(echo "$earg" | sed 's/ /%20/g')
+                    link1="https://scriptblox.com/?q=${search_plus}"
+                    link2="https://rscripts.net/scripts?search=${search_enc}&focus=1"
+                    echo ""
+                    echo -e "${C}Hasil untuk: ${W}$earg${NC}"
+                    echo -e "${W}$(auto_line)${NC}"
+                    echo -e "${W}[1] ${G}ScriptBlox${NC} - ${link1}"
+                    echo -e "${W}[2] ${G}RScripts${NC} - ${link2}"
+                    echo -e "${W}$(auto_line)${NC}"
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${C}[EXP] Mencari: $earg${NC}"
+                        echo -e "${Y}Pilih angka depan 1-2 untuk buka link (0 batal):${NC}"
                     else
-                        echo -e "${C}[EXP] Searching: $earg${NC}"
+                        echo -e "${Y}Choose front number 1-2 to open link (0 cancel):${NC}"
                     fi
-                    termux-open-url "$link" >/dev/null 2>&1
-                    am start -a android.intent.action.VIEW -d "$link" >/dev/null 2>&1
+                    read -p $'\033[1;37m┗━[pilih]<$ \033[0m' choice
+                    choice=$(echo "$choice" | xargs)
+                    case "$choice" in
+                        1)
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${C}[EXP] Membuka ScriptBlox: $earg${NC}"
+                            else
+                                echo -e "${C}[EXP] Opening ScriptBlox: $earg${NC}"
+                            fi
+                            termux-open-url "$link1" >/dev/null 2>&1
+                            am start -a android.intent.action.VIEW -d "$link1" >/dev/null 2>&1
+                            ;;
+                        2)
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${C}[EXP] Membuka RScripts: $earg${NC}"
+                            else
+                                echo -e "${C}[EXP] Opening RScripts: $earg${NC}"
+                            fi
+                            termux-open-url "$link2" >/dev/null 2>&1
+                            am start -a android.intent.action.VIEW -d "$link2" >/dev/null 2>&1
+                            ;;
+                        0|"")
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${Y}Dibatalkan${NC}"
+                            else
+                                echo -e "${Y}Cancelled${NC}"
+                            fi
+                            ;;
+                        *)
+                            echo -e "${R}Pilihan tidak valid${NC}"
+                            ;;
+                    esac
                 fi
                 ;;
             exit|quit|q|keluar|00)
