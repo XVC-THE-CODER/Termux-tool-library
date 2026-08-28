@@ -10,7 +10,7 @@ NC='\033[0m'
 LANG_FILE="$HOME/.as_lang"
 SAVE_FILE="$HOME/.rbx_saves"
 SELECTED=""
-VERSION="1.2"
+VERSION="1.3"
 ROBLOX_PLAYER_URL="https://www.roblox.com/users/"
 ROBLOX_PLAYER_DEEP="roblox://users/"
 norm() {
@@ -21,16 +21,42 @@ gen_uuid() {
 }
 auto_line() {
     local cols=$(tput cols 2>/dev/null)
-    if [ -z "$cols" ]; then
-        cols=${COLUMNS:-60}
-    fi
-    if [ "$cols" -gt 120 ]; then
-        cols=120
-    fi
-    if [ "$cols" -lt 20 ]; then
-        cols=30
-    fi
+    if [ -z "$cols" ]; then cols=${COLUMNS:-60}; fi
+    if [ "$cols" -gt 120 ]; then cols=120; fi
+    if [ "$cols" -lt 20 ]; then cols=30; fi
     printf '═%.0s' $(seq 1 $cols)
+}
+closest_match() {
+    local input="$1"
+    shift
+    local cands=("$@")
+    python3 -c "
+import sys
+def lev(a,b):
+    if len(a)<len(b):
+        return lev(b,a)
+    if len(b)==0:
+        return len(a)
+    prev=list(range(len(b)+1))
+    for i,ca in enumerate(a):
+        cur=[i+1]
+        for j,cb in enumerate(b):
+            ins=prev[j+1]+1
+            dels=cur[j]+1
+            subs=prev[j]+(ca!=cb)
+            cur.append(min(ins,dels,subs))
+        prev=cur
+    return prev[-1]
+inp=sys.argv[1].lower()
+best=''
+bestd=999
+for cand in sys.argv[2:]:
+    d=lev(inp,cand.lower())
+    if d<bestd:
+        bestd=d
+        best=cand
+print(f'{best}|{bestd}')
+" "$input" "${cands[@]}"
 }
 choose_lang() {
     clear
@@ -71,9 +97,10 @@ show_cmd() {
     printf "${M}%s${NC}\n" '     \/     \/            \/     \/       '
     echo -e "${W}${line}${NC}"
     echo -e "${C}command${NC}"
-    echo -e "${C}assistant 1.2${NC}"
+    echo -e "${C}assistant 1.3${NC}"
     echo -e "${W}${line}${NC}"
     if [ "$SELECTED" = "id" ]; then
+        echo -e "${G}as up${NC}      - update github & restart (ringkas)"
         echo -e "${G}as update${NC}  - update github & restart"
         echo -e "${G}as roblox${NC}  - masuk Roblox lobby"
         echo -e "${G}as antilag${NC} - boost performa"
@@ -82,6 +109,7 @@ show_cmd() {
         echo -e "${G}as help${NC}  - panduan lengkap"
         echo -e "${G}exit${NC}     - keluar"
     else
+        echo -e "${G}as up${NC}      - update github & restart (short)"
         echo -e "${G}as update${NC}  - update github & restart"
         echo -e "${G}as roblox${NC}  - enter Roblox lobby"
         echo -e "${G}as antilag${NC} - boost performance"
@@ -106,9 +134,9 @@ show_assistant_help() {
         echo -e "${C}=== PANDUAN ASSISTANT - FULL & SINGKAT ===${NC}"
         echo -e "${W}Bahasa: Indonesia${NC}"
         echo -e "${W}${line}${NC}"
-        echo -e "${G}1. as update${NC} - update github & restart"
+        echo -e "${G}1. as up / as update${NC} - update github & restart"
         echo -e ""
-        echo -e "${G}2. as roblox${NC} - masuk Roblox lobby"
+        echo -e "${G}2. as roblox${NC} - masuk Roblox lobby (auto-correct jika typo)"
         echo -e ""
         echo -e "${G}3. as antilag${NC} - boost performa"
         echo -e ""
@@ -120,13 +148,14 @@ show_assistant_help() {
         echo -e ""
         echo -e "${G}7. exit${NC} - keluar"
         echo -e "${W}${line}${NC}"
+        echo -e "${Y}Fitur auto-correct: jika typo seperti as rploc akan ditanya y/n${NC}"
     else
         echo -e "${C}=== ASSISTANT GUIDE - FULL & SHORT ===${NC}"
         echo -e "${W}Language: English${NC}"
         echo -e "${W}${line}${NC}"
-        echo -e "${G}1. as update${NC} - update github & restart"
+        echo -e "${G}1. as up / as update${NC} - update github & restart"
         echo -e ""
-        echo -e "${G}2. as roblox${NC} - enter Roblox lobby"
+        echo -e "${G}2. as roblox${NC} - enter Roblox lobby (auto-correct on typo)"
         echo -e ""
         echo -e "${G}3. as antilag${NC} - boost performance"
         echo -e ""
@@ -138,6 +167,7 @@ show_assistant_help() {
         echo -e ""
         echo -e "${G}7. exit${NC} - exit assistant"
         echo -e "${W}${line}${NC}"
+        echo -e "${Y}Auto-correct: typo like as rploc will ask y/n${NC}"
     fi
     echo ""
     if [ "$SELECTED" = "id" ]; then
@@ -159,6 +189,7 @@ show_roblox_lobby_v16() {
         echo -e "${G}rbx save <name> <id>${NC} - simpan map"
         echo -e "${G}rbx listjoin [name/angka]${NC} - join dari save"
         echo -e "${G}rbx rmls [name/angka]${NC} - hapus save"
+        echo -e "${G}rbx searchgame <keyword>${NC} - cari game mirip keyword (5 pencari background)"
         echo -e "${G}help${NC} - panduan lengkap & singkat"
         echo -e "${G}exit${NC} - keluar lobby"
         echo -e "${W}${line}${NC}"
@@ -171,6 +202,7 @@ show_roblox_lobby_v16() {
         echo -e "${G}rbx save <name> <id>${NC} - save map"
         echo -e "${G}rbx listjoin [name/number]${NC} - join saved"
         echo -e "${G}rbx rmls [name/number]${NC} - delete saved"
+        echo -e "${G}rbx searchgame <keyword>${NC} - search games similar to keyword (5 background searchers)"
         echo -e "${G}help${NC} - full & short guide"
         echo -e "${G}exit${NC} - exit lobby"
         echo -e "${W}${line}${NC}"
@@ -181,61 +213,49 @@ show_roblox_help() {
     local line=$(auto_line)
     if [ "$SELECTED" = "id" ]; then
         echo -e "${C}=== PANDUAN ROBLOX LOBBY - FULL & SINGKAT ===${NC}"
-        echo -e "${W}Bahasa: Indonesia (English translate di dalam kurung)${NC}"
+        echo -e "${W}Bahasa: Indonesia${NC}"
         echo -e "${W}${line}${NC}"
         echo -e "${G}1. rbx playgame <id>${NC} - join map"
-        echo -e "${W}   instant: playgame <id>${NC}"
-        echo -e "${W}   EN: join map directly${NC}"
         echo -e ""
         echo -e "${G}2. rbx playersearch <id>${NC} - cari player"
-        echo -e "${W}   instant: playersearch <id>${NC}"
-        echo -e "${W}   EN: find player profile${NC}"
         echo -e ""
         echo -e "${G}3. rbx save <name> <id>${NC} - simpan map"
-        echo -e "${W}   instant: save <name> <id>${NC}"
-        echo -e "${W}   EN: save map to list${NC}"
         echo -e ""
         echo -e "${G}4. rbx listjoin [name/angka]${NC} - join dari save"
-        echo -e "${W}   instant: listjoin [name/angka]${NC}"
-        echo -e "${W}   EN: join from saved${NC}"
         echo -e ""
         echo -e "${G}5. rbx rmls [name/angka]${NC} - hapus save"
-        echo -e "${W}   instant: rmls [name/angka]${NC}"
-        echo -e "${W}   EN: remove saved map${NC}"
         echo -e ""
-        echo -e "${G}6. help${NC} - panduan ini"
-        echo -e "${W}   EN: show full & short usage${NC}"
+        echo -e "${G}6. rbx searchgame <keyword>${NC} - cari game mirip"
+        echo -e "${W}   instant: searchgame <keyword>${NC}"
+        echo -e "${W}   spasi otomatis jadi - untuk pencocokan${NC}"
+        echo -e "${W}   5 pencari background, filter 404, bisa lebih dari 1 hasil${NC}"
         echo -e ""
-        echo -e "${G}7. exit${NC} - keluar lobby"
-        echo -e "${W}   EN: exit lobby${NC}"
-        echo -e "${W}${line}${NC}"
-        echo -e "${Y}Catatan: command tanpa rbx tetap bisa dipakai walau tidak ditampilkan${NC}"
-        echo -e "${Y}EN Note: instant commands without rbx still work even if not shown${NC}"
+        echo -e "${G}7. help${NC} - panduan ini"
+        echo -e ""
+        echo -e "${G}8. exit${NC} - keluar lobby"
         echo -e "${W}${line}${NC}"
     else
         echo -e "${C}=== ROBLOX LOBBY GUIDE - FULL & SHORT ===${NC}"
         echo -e "${W}Language: English${NC}"
         echo -e "${W}${line}${NC}"
         echo -e "${G}1. rbx playgame <id>${NC} - join map"
-        echo -e "${W}   instant: playgame <id>${NC}"
         echo -e ""
         echo -e "${G}2. rbx playersearch <id>${NC} - find player"
-        echo -e "${W}   instant: playersearch <id>${NC}"
         echo -e ""
         echo -e "${G}3. rbx save <name> <id>${NC} - save map"
-        echo -e "${W}   instant: save <name> <id>${NC}"
         echo -e ""
         echo -e "${G}4. rbx listjoin [name/number]${NC} - join saved"
-        echo -e "${W}   instant: listjoin${NC}"
         echo -e ""
         echo -e "${G}5. rbx rmls [name/number]${NC} - delete saved"
-        echo -e "${W}   instant: rmls${NC}"
         echo -e ""
-        echo -e "${G}6. help${NC} - this guide"
+        echo -e "${G}6. rbx searchgame <keyword>${NC} - search similar games"
+        echo -e "${W}   instant: searchgame <keyword>${NC}"
+        echo -e "${W}   spaces become - for matching${NC}"
+        echo -e "${W}   5 background searchers, 404 filter, multiple results${NC}"
         echo -e ""
-        echo -e "${G}7. exit${NC} - exit lobby"
-        echo -e "${W}${line}${NC}"
-        echo -e "${Y}Note: instant commands without rbx still work${NC}"
+        echo -e "${G}7. help${NC} - this guide"
+        echo -e ""
+        echo -e "${G}8. exit${NC} - exit lobby"
         echo -e "${W}${line}${NC}"
     fi
     echo ""
@@ -340,6 +360,143 @@ delete_rbx_by_name() {
     grep -v -i "^${sname}|" "$SAVE_FILE" 2>/dev/null > "${SAVE_FILE}.tmp"
     mv "${SAVE_FILE}.tmp" "$SAVE_FILE" 2>/dev/null
 }
+rbx_searchgame() {
+    local raw_kw="$1"
+    raw_kw=$(echo "$raw_kw" | xargs)
+    if [ -z "$raw_kw" ]; then
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${Y}Contoh: rbx searchgame Steal an Egg${NC}"
+        else
+            echo -e "${Y}Example: rbx searchgame Steal an Egg${NC}"
+        fi
+        return
+    fi
+    local kw_lower=$(echo "$raw_kw" | tr '[:upper:]' '[:lower:]' | xargs)
+    local kw_hyphen=$(echo "$kw_lower" | sed 's/ /-/g')
+    local kw_nospace=$(echo "$kw_lower" | sed 's/ //g')
+    local TMPDIR="/data/data/com.termux/files/usr/tmp/rbx_search_$$"
+    mkdir -p "$TMPDIR"
+    local RESULTS="$TMPDIR/results.txt"
+    > "$RESULTS"
+    local FOUND="$TMPDIR/found"
+    > "$FOUND"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${C}Mencari game mirip: ${W}$raw_kw${NC}"
+        echo -e "${Y}Spasi otomatis jadi - untuk pencocokan: $kw_hyphen${NC}"
+        echo -e "${Y}5 pencari berjalan di belakang layar, filter 404...${NC}"
+    else
+        echo -e "${C}Searching similar games: ${W}$raw_kw${NC}"
+        echo -e "${Y}Spaces become - for matching: $kw_hyphen${NC}"
+        echo -e "${Y}5 searchers running in background, 404 filter...${NC}"
+    fi
+    worker_search() {
+        local start_id=$1
+        local wid=$2
+        local scanned=0
+        local max_scan=600
+        local cur_id=$start_id
+        while [ $scanned -lt $max_scan ]; do
+            if [ $(wc -l < "$RESULTS" 2>/dev/null) -ge 15 ]; then
+                break
+            fi
+            local json=$(curl -s --max-time 4 "https://api.roblox.com/marketplace/productinfo?assetId=$cur_id" 2>/dev/null)
+            if [ -n "$json" ]; then
+                if echo "$json" | grep -q '"Name"'; then
+                    local name=$(echo "$json" | python3 -c "import sys,json; try: d=json.load(sys.stdin); print(d.get('Name','')) except: print('')" 2>/dev/null)
+                    if [ -n "$name" ]; then
+                        local lname=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+                        local match=0
+                        if echo "$lname" | grep -qi "$kw_lower"; then
+                            match=1
+                        elif echo "$lname" | grep -qi "$kw_hyphen"; then
+                            match=1
+                        else
+                            local all_words=1
+                            for w in $kw_lower; do
+                                if ! echo "$lname" | grep -qi "$w"; then
+                                    all_words=0
+                                    break
+                                fi
+                            done
+                            if [ $all_words -eq 1 ]; then
+                                match=1
+                            fi
+                        fi
+                        if [ $match -eq 1 ]; then
+                            if ! grep -q "^$cur_id|" "$RESULTS" 2>/dev/null; then
+                                echo "$cur_id|$name" >> "$RESULTS"
+                                echo -e "${G}[Pencari $wid] Ditemukan: $name - ID $cur_id${NC}"
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+            cur_id=$((cur_id + 5))
+            scanned=$((scanned + 1))
+            if [ $((scanned % 50)) -eq 0 ]; then
+                sleep 0.1
+            fi
+        done
+    }
+    worker_search 1 1 &
+    worker_search 1000000 2 &
+    worker_search 3000000 3 &
+    worker_search 5000000 4 &
+    worker_search 8000000 5 &
+    wait
+    sort -u "$RESULTS" -o "$RESULTS"
+    if [ ! -s "$RESULTS" ]; then
+        if [ "$SELECTED" = "id" ]; then
+            echo -e "${R}Tidak ada game cocok untuk: $raw_kw${NC}"
+        else
+            echo -e "${R}No matching games for: $raw_kw${NC}"
+        fi
+        rm -rf "$TMPDIR"
+        return
+    fi
+    echo ""
+    echo -e "${W}$(auto_line)${NC}"
+    echo -e "${C}Hasil ditemukan: $(wc -l < "$RESULTS") game${NC}"
+    echo -e "${W}$(auto_line)${NC}"
+    local idx=1
+    while IFS='|' read -r gid gname; do
+        echo -e "${W}${idx}. ${G}${gname}${NC} ${W}- ID ${gid}${NC}"
+        idx=$((idx+1))
+    done < "$RESULTS"
+    echo -e "${W}$(auto_line)${NC}"
+    if [ "$SELECTED" = "id" ]; then
+        echo -e "${Y}Ketik nomor untuk join (0 batal, bisa lebih dari 1 dengan koma):${NC}"
+    else
+        echo -e "${Y}Enter number to join (0 cancel, multiple with comma):${NC}"
+    fi
+    read -p $'\033[1;37m┗━[pilih]<$ \033[0m' choice
+    choice=$(echo "$choice" | xargs)
+    if [ "$choice" = "0" ] || [ -z "$choice" ]; then
+        rm -rf "$TMPDIR"
+        return
+    fi
+    if echo "$choice" | grep -q ","; then
+        IFS=',' read -ra nums <<< "$choice"
+        for n in "${nums[@]}"; do
+            n=$(echo "$n" | xargs)
+            if echo "$n" | grep -Eq '^[0-9]+$'; then
+                gid=$(sed -n "${n}p" "$RESULTS" | cut -d'|' -f1)
+                if [ -n "$gid" ]; then
+                    roblox_join_by_id "$gid"
+                    sleep 1
+                fi
+            fi
+        done
+    else
+        if echo "$choice" | grep -Eq '^[0-9]+$'; then
+            gid=$(sed -n "${choice}p" "$RESULTS" | cut -d'|' -f1)
+            if [ -n "$gid" ]; then
+                roblox_join_by_id "$gid"
+            fi
+        fi
+    fi
+    rm -rf "$TMPDIR"
+}
 exploit_lobby() {
     clear
     local line=$(auto_line)
@@ -347,14 +504,14 @@ exploit_lobby() {
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}rahasia - tidak ada di list Roblox lobby${NC}"
         echo -e "${W}${line}${NC}"
-        echo -e "${G}exp search <keyword>${NC} - cari script (2 pilihan)"
+        echo -e "${G}exp search <keyword>${NC} - cari script (2 pilihan tersembunyi)"
         echo -e "${G}exit${NC} - kembali"
         echo -e "${W}${line}${NC}"
     else
         echo -e "${R}=== SECRET EXPLOIT LOBBY ===${NC}"
         echo -e "${W}secret - not in Roblox lobby list${NC}"
         echo -e "${W}${line}${NC}"
-        echo -e "${G}exp search <keyword>${NC} - search script (2 choices)"
+        echo -e "${G}exp search <keyword>${NC} - search script (2 hidden choices)"
         echo -e "${G}exit${NC} - back"
         echo -e "${W}${line}${NC}"
     fi
@@ -381,41 +538,26 @@ exploit_lobby() {
                     echo ""
                     echo -e "${C}Hasil untuk: ${W}$earg${NC}"
                     echo -e "${W}$(auto_line)${NC}"
-                    echo -e "${W}[1] ${G}ScriptBlox${NC} - ${link1}"
-                    echo -e "${W}[2] ${G}RScripts${NC} - ${link2}"
+                    echo -e "${W}[1] ${G}ScriptBlox${NC}"
+                    echo -e "${W}[2] ${G}RScripts${NC}"
                     echo -e "${W}$(auto_line)${NC}"
                     if [ "$SELECTED" = "id" ]; then
-                        echo -e "${Y}Pilih angka depan 1-2 untuk buka link (0 batal):${NC}"
+                        echo -e "${Y}Pilih angka depan 1-2 untuk buka (0 batal, link disembunyikan):${NC}"
                     else
-                        echo -e "${Y}Choose front number 1-2 to open link (0 cancel):${NC}"
+                        echo -e "${Y}Choose front number 1-2 to open (0 cancel, link hidden):${NC}"
                     fi
                     read -p $'\033[1;37m┗━[pilih]<$ \033[0m' choice
                     choice=$(echo "$choice" | xargs)
                     case "$choice" in
                         1)
-                            if [ "$SELECTED" = "id" ]; then
-                                echo -e "${C}[EXP] Membuka ScriptBlox: $earg${NC}"
-                            else
-                                echo -e "${C}[EXP] Opening ScriptBlox: $earg${NC}"
-                            fi
                             termux-open-url "$link1" >/dev/null 2>&1
                             am start -a android.intent.action.VIEW -d "$link1" >/dev/null 2>&1
                             ;;
                         2)
-                            if [ "$SELECTED" = "id" ]; then
-                                echo -e "${C}[EXP] Membuka RScripts: $earg${NC}"
-                            else
-                                echo -e "${C}[EXP] Opening RScripts: $earg${NC}"
-                            fi
                             termux-open-url "$link2" >/dev/null 2>&1
                             am start -a android.intent.action.VIEW -d "$link2" >/dev/null 2>&1
                             ;;
                         0|"")
-                            if [ "$SELECTED" = "id" ]; then
-                                echo -e "${Y}Dibatalkan${NC}"
-                            else
-                                echo -e "${Y}Cancelled${NC}"
-                            fi
                             ;;
                         *)
                             echo -e "${R}Pilihan tidak valid${NC}"
@@ -445,6 +587,8 @@ roblox_lobby() {
         read -p $'\033[1;37m┗━<$ \033[0m' rcmd
         [ -z "$rcmd" ] && continue
         rfull=$(norm "$rcmd")
+        rbase=$(echo "$rfull" | awk '{if($1=="rbx") print $1" "$2; else print $1}')
+        rargs=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?[a-zA-Z]+[ ]*//I' | xargs)
         case "$rfull" in
             rbx\ playgame* | playgame* )
                 rid=$(echo "$rcmd" | awk '{print $NF}')
@@ -650,6 +794,12 @@ roblox_lobby() {
                 sleep 1
                 show_roblox_lobby_v16
                 ;;
+            rbx\ searchgame* | searchgame* )
+                kw=$(echo "$rcmd" | sed -E 's/^(rbx[ ]+)?searchgame[ ]*//I' | xargs)
+                rbx_searchgame "$kw"
+                sleep 1
+                show_roblox_lobby_v16
+                ;;
             help )
                 show_roblox_help
                 ;;
@@ -662,13 +812,44 @@ roblox_lobby() {
                 break
                 ;;
             *)
-                if [ "$SELECTED" = "id" ]; then
-                    echo -e "${Y}Perintah tidak dikenal. Ketik 'help' untuk panduan${NC}"
+                valid_rbx=("rbx playgame" "playgame" "rbx playersearch" "playersearch" "rbx save" "save" "rbx listjoin" "listjoin" "rbx rmls" "rmls" "rbx searchgame" "searchgame" "help" "exit" "exploit")
+                cm=$(closest_match "$rbase" "${valid_rbx[@]}")
+                sug=$(echo "$cm" | cut -d'|' -f1)
+                dist=$(echo "$cm" | cut -d'|' -f2)
+                if [ -n "$sug" ] && [ "$dist" -le 3 ] && [ "$dist" -gt 0 ]; then
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Apakah maksud Anda '${sug}'? (y/n)${NC}"
+                    else
+                        echo -e "${Y}Did you mean '${sug}'? (y/n)${NC}"
+                    fi
+                    read -p $'\033[1;37m┗━[y/n]<$ \033[0m' yn
+                    yn=$(norm "$yn")
+                    if [ "$yn" = "y" ] || [ "$yn" = "yes" ]; then
+                        if echo "$sug" | grep -q "playgame\|playersearch\|save\|listjoin\|rmls\|searchgame"; then
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${Y}Ketik ulang dengan argumen, contoh: $sug <id/keyword>${NC}"
+                            else
+                                echo -e "${Y}Retype with args, example: $sug <id/keyword>${NC}"
+                            fi
+                        else
+                            rcmd="$sug"
+                            rfull=$(norm "$rcmd")
+                            case "$rfull" in
+                                help) show_roblox_help ;;
+                                exploit) exploit_lobby ;;
+                                exit|quit|q|keluar) clear; show_cmd; break ;;
+                            esac
+                        fi
+                    fi
                 else
-                    echo -e "${Y}Unknown command. Type 'help' for guide${NC}"
+                    if [ "$SELECTED" = "id" ]; then
+                        echo -e "${Y}Perintah tidak dikenal. Ketik 'help' untuk panduan${NC}"
+                    else
+                        echo -e "${Y}Unknown command. Type 'help' for guide${NC}"
+                    fi
+                    sleep 1
+                    show_roblox_lobby_v16
                 fi
-                sleep 1
-                show_roblox_lobby_v16
                 ;;
         esac
     done
@@ -973,8 +1154,10 @@ while true; do
     [ -z "$cmd" ] && continue
     full=$(norm "$cmd")
     lang_arg=$(echo "$cmd" | cut -d' ' -f3- | xargs)
+    base_cmd=$(echo "$full" | awk '{print $1" "$2}' | xargs)
+    if [ -z "$base_cmd" ]; then base_cmd="$full"; fi
     case "$full" in
-        "as update") do_update ;;
+        "as update"|"as up") do_update ;;
         "as roblox"|"roblox"|"rbx") roblox_lobby ;;
         "as antilag") run_antilag; show_cmd ;;
         "as fileman") run_fileman ;;
@@ -1007,17 +1190,51 @@ while true; do
                     ;;
             esac
             ;;
-        "as help") show_assistant_help ;;
-        "help") show_assistant_help ;;
+        "as help"|"help") show_assistant_help ;;
         "exit"|"quit"|"q")
             cd ~
             exit 0
             ;;
         *)
-            if [ "$SELECTED" = "id" ]; then
-                echo -e "${Y}Perintah tidak dikenal${NC}"
+            valid_main=("as update" "as up" "as roblox" "as antilag" "as fileman" "as lang" "as help" "exit" "roblox" "rbx")
+            check_input=$(echo "$full" | awk '{print $1" "$2}' | xargs)
+            if [ -z "$(echo "$full" | grep " ")" ]; then
+                check_input="$full"
+            fi
+            cm=$(closest_match "$check_input" "${valid_main[@]}")
+            sug=$(echo "$cm" | cut -d'|' -f1)
+            dist=$(echo "$cm" | cut -d'|' -f2)
+            if [ -n "$sug" ] && [ "$dist" -le 3 ] && [ "$dist" -gt 0 ]; then
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${Y}Apakah maksud Anda '${sug}'? (y/n)${NC}"
+                else
+                    echo -e "${Y}Did you mean '${sug}'? (y/n)${NC}"
+                fi
+                read -p $'\033[1;37m┗━[y/n]<$ \033[0m' yn
+                yn=$(norm "$yn")
+                if [ "$yn" = "y" ] || [ "$yn" = "yes" ]; then
+                    case "$sug" in
+                        "as update"|"as up") do_update ;;
+                        "as roblox"|"roblox"|"rbx") roblox_lobby ;;
+                        "as antilag") run_antilag; show_cmd ;;
+                        "as fileman") run_fileman ;;
+                        "as lang") 
+                            if [ "$SELECTED" = "id" ]; then
+                                echo -e "${Y}Contoh: as lang id${NC}"
+                            else
+                                echo -e "${Y}Example: as lang id${NC}"
+                            fi
+                            ;;
+                        "as help"|"help") show_assistant_help ;;
+                        "exit") cd ~; exit 0 ;;
+                    esac
+                fi
             else
-                echo -e "${Y}Unknown command${NC}"
+                if [ "$SELECTED" = "id" ]; then
+                    echo -e "${Y}Perintah tidak dikenal${NC}"
+                else
+                    echo -e "${Y}Unknown command${NC}"
+                fi
             fi
             ;;
     esac
