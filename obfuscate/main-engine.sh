@@ -35,7 +35,7 @@ def rand_name(damage=3, prefix=""):
     return f"_V{_counter}{prefix}"
 
 def gen_base_vars(damage):
-    count = 3 if damage <=2 else 4 if damage==3 else 5
+    count = 2 if damage <=3 else 3 if damage <=6 else 4 if damage <=10 else 6 if damage <=13 else 8
     names, vals = [], {}
     for _ in range(count):
         n = rand_name(damage)
@@ -53,31 +53,77 @@ def gen_one(var_names):
     v = random.choice(var_names)
     return f"({v}-{v}+1)"
 
-def gen_num_math(n, var_names):
+def gen_num_simple(n, var_names):
     if n <= 0:
         return gen_zero(var_names)
     if n == 1:
         return gen_one(var_names)
-    if n <= 4:
+    if n <= 10:
         parts = []
         for i in range(n):
             v = random.choice(var_names)
             parts.append(f"{v}-{v}+1")
         return f"({'+'.join(parts)})"
-    if n > 5 and random.choice([True, False]):
+    else:
+        a = random.randint(2, min(20, n-1))
+        b = n // a
+        r = n % a
+        if r == 0:
+            return f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)})"
+        else:
+            return f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)}+{gen_num_simple(r, var_names)})"
+
+def gen_num_mul_div(n, var_names, complex_level=1):
+    if n <= 0:
+        return gen_zero(var_names)
+    if n == 1:
+        return gen_one(var_names)
+    if complex_level <= 1 or n <= 2:
+        return gen_num_simple(n, var_names)
+    method = random.choice(['mul_div', 'div_mul', 'mul'])
+    if method == 'mul_div':
+        k = random.randint(2, 9)
+        top = n * k
+        if top < 100:
+            top_expr = gen_num_simple(top, var_names)
+        else:
+            a = random.randint(2, 20)
+            b = top // a
+            r = top % a
+            if r == 0:
+                top_expr = f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)})"
+            else:
+                top_expr = f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)}+{gen_num_simple(r, var_names)})"
+        k_expr = gen_num_simple(k, var_names)
+        return f"({top_expr}/{k_expr})"
+    elif method == 'div_mul':
+        k = random.randint(2, 9)
+        top = n * k
+        if top < 100:
+            top_expr = gen_num_simple(top, var_names)
+        else:
+            a = random.randint(2, 20)
+            b = top // a
+            r = top % a
+            if r == 0:
+                top_expr = f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)})"
+            else:
+                top_expr = f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)}+{gen_num_simple(r, var_names)})"
+        return f"({top_expr}/{gen_num_simple(k, var_names)})"
+    else:
+        # (a * b) where a*b = n, or (a * b)/c
         for a in range(2, int(n**0.5)+1):
             if n % a == 0:
                 b = n//a
-                return f"({gen_num_math(a, var_names)}*{gen_num_math(b, var_names)})"
-    if n > 4 and random.choice([True, False]):
-        a = random.randint(1, n-1)
-        b = n - a
-        return f"({gen_num_math(a, var_names)}+{gen_num_math(b, var_names)})"
-    parts = []
-    for i in range(n):
-        v = random.choice(var_names)
-        parts.append(f"{v}-{v}+1")
-    return f"({'+'.join(parts)})"
+                return f"({gen_num_simple(a, var_names)}*{gen_num_simple(b, var_names)})"
+        # if not divisible, do (n*k)/k
+        k = random.randint(2, 7)
+        top = n * k
+        return f"(({gen_num_simple(top, var_names)})/{gen_num_simple(k, var_names)})"
+
+def gen_num_math(n, var_names):
+    # Wrapper for base91 numbers - use mul/div directly
+    return gen_num_mul_div(n, var_names, complex_level=2)
 
 def b91encode(data: bytes):
     b = 0
@@ -102,12 +148,38 @@ def b91encode(data: bytes):
             out += B91_CHARS[b // 91]
     return out
 
-def xor_encode(s, key):
-    return [ord(c) ^ key for c in s]
+def lua_char_expr_50(c, var_names, xor_func_name):
+    # 50% symbol di base91 di buat xor atau decimal per symbol random
+    is_symbol = c in "!#$%&()*+,./:;<=>?@[]^_`{|}~\"':"
+    if not is_symbol:
+        # For non-symbol, 10% chance still obfuscate to make longer for high damage
+        if random.random() < 0.1:
+            is_symbol = True
+    if not is_symbol:
+        esc = c.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{esc}"'
+    # 50% chance to be obfuscated
+    if random.random() < 0.5:
+        esc = c.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{esc}"'
+    else:
+        # Choose xor or decimal randomly per symbol
+        if random.choice([True, False]):
+            # decimal
+            math_expr = gen_num_mul_div(ord(c), var_names, complex_level=2)
+            return f'string.char({math_expr})'
+        else:
+            # xor
+            key = random.randint(10,200)
+            enc = ord(c) ^ key
+            math_enc = gen_num_mul_div(enc, var_names, complex_level=2)
+            math_key = gen_num_mul_div(key, var_names, complex_level=2)
+            return f'string.char({xor_func_name}({math_enc},{math_key}))'
 
 def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space):
     global _counter
     _counter = 0
+    damage = max(1, min(15, int(damage)))
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
         original = f.read()
     if not original.strip():
@@ -115,8 +187,22 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         return False
     html_entity = ''.join(f"&#{ord(c)};" for c in original)
     b91_str = b91encode(html_entity.encode('utf-8'))
-    num_parts = 4
-    chunk_len = len(b91_str) // num_parts + 1
+    # damage kecil => pendek, damage tinggi => panjang banget
+    if damage <= 2:
+        num_parts = 2
+        chunk_len = len(b91_str) // 2 + 1
+    elif damage <= 5:
+        num_parts = 3
+        chunk_len = len(b91_str) // 3 + 1
+    elif damage <= 9:
+        num_parts = 4
+        chunk_len = len(b91_str) // 4 + 1
+    elif damage <= 12:
+        num_parts = 5
+        chunk_len = len(b91_str) // 5 + 1
+    else:
+        num_parts = 7
+        chunk_len = len(b91_str) // 7 + 1
     b91_parts = [b91_str[i:i+chunk_len] for i in range(0, len(b91_str), chunk_len)]
     while len(b91_parts) < num_parts:
         b91_parts.append("")
@@ -126,19 +212,35 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     lua_vars = []
     for name in var_names:
         lua_vars.append(f"local {name}={var_vals[name]}")
-    if damage >= 4:
-        for _ in range(damage):
-            junk_name = rand_name(damage, "_j")
-            base = random.choice(var_names)
-            lua_vars.append(f"local {junk_name}={base}+{random.randint(1,5)}-{random.randint(1,5)}+{base}-{base}")
+    # damage kecil pendek, tinggi panjang banget
+    if damage <= 2:
+        junk_count = damage
+    elif damage <= 5:
+        junk_count = damage * 2
+    elif damage <= 9:
+        junk_count = damage * 4
+    elif damage <= 12:
+        junk_count = damage * 6
+    else:
+        junk_count = damage * 8
+    for _ in range(junk_count):
+        junk_name = rand_name(damage, "")
+        base = random.choice(var_names)
+        lua_vars.append(f"local {junk_name}={base}+{random.randint(1,5)}-{random.randint(1,5)}+{base}-{base}")
+        if damage >= 7 and random.random() < 0.5:
             lua_vars.append(f"if {base}-{base}=={gen_one(var_names)} then local {rand_name(damage)}={gen_zero(var_names)} end")
     lua_vars_code = "\n".join(lua_vars)
     if short_byte == "on":
-        num_pieces = 4
-        if damage == 1:
+        if damage <= 2:
+            num_pieces = 1
+        elif damage <= 5:
             num_pieces = 2
-        elif damage >=4:
+        elif damage <= 9:
+            num_pieces = 4
+        elif damage <= 12:
             num_pieces = 6
+        else:
+            num_pieces = 10
         chunk = len(decimal_parts) // num_pieces + 1
         pieces = []
         for i in range(0, len(decimal_parts), chunk):
@@ -173,8 +275,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         e2 = gen_num_math(2, var_names)
         e4 = gen_num_math(4, var_names)
         e16 = gen_num_math(16, var_names)
-        xor_key = random.randint(10,200)
-        xor_enc_A = xor_encode("A", xor_key)
+        xor_func_name = rand_name(damage, "")
         lua_template = f"""{lua_vars_code}
 {chr(10).join(piece_defs)}
 local {combined_var}={combined_expr}
@@ -222,7 +323,7 @@ end
 end
 {ent_var}={ent_var}..string.char(tonumber({h_var}2,{e16}))
 end
-local function _{rand_name(damage)}(a,b)
+local function {xor_func_name}(a,b)
 local r=0
 local bit=1
 while a>0 or b>0 do
@@ -241,13 +342,19 @@ local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
 """
     else:
+        b91_decode_func = rand_name(damage, "")
+        xor_func_name = rand_name(damage, "")
         b91_vars = []
         b91_defs = []
         for idx, part in enumerate(b91_parts):
             var = rand_name(damage, "")
-            esc = part.replace("\\", "\\\\").replace('"', '\\"')
+            char_exprs = []
+            for c in part:
+                expr = lua_char_expr_50(c, var_names, xor_func_name)
+                char_exprs.append(expr)
+            obf_expr = " .. ".join(char_exprs) if char_exprs else '""'
             b91_vars.append(var)
-            b91_defs.append(f'local {var}="{esc}"')
+            b91_defs.append((var, obf_expr))
         forward_vars = []
         a_vars = []
         z_vars = []
@@ -274,7 +381,18 @@ if _ok and _fn then pcall(_fn) end
         e1 = gen_num_math(1, var_names)
         e2 = gen_num_math(2, var_names)
         e4 = gen_num_math(4, var_names)
+        e8 = gen_num_math(8, var_names)
+        e13 = gen_num_math(13, var_names)
+        e14 = gen_num_math(14, var_names)
+        e91 = gen_num_math(91, var_names)
+        e256 = gen_num_math(256, var_names)
+        e8191 = gen_num_math(8191, var_names)
+        e8192 = gen_num_math(8192, var_names)
+        e88 = gen_num_math(88, var_names)
         b91_chars_lua = B91_CHARS.replace("\\", "\\\\").replace('"', '\\"')
+        b91_def_lines = []
+        for idx, (var, esc) in enumerate(b91_defs):
+            b91_def_lines.append(f'local {var}={esc}')
         a_defs = []
         for idx in range(num_parts):
             a_var = a_vars[idx]
@@ -282,16 +400,28 @@ if _ok and _fn then pcall(_fn) end
             b91_var = b91_vars[idx]
             a_defs.append(f'local {z_var}={b91_var}')
             a_defs.append(f'local {a_var}={z_var}')
-        b91_decode_func = rand_name(damage, "")
         lua_template = f"""{lua_vars_code}
 {forward_decl}
-{chr(10).join(b91_defs)}
+local function {xor_func_name}(a,b)
+local r=0
+local bit=1
+while a>0 or b>0 do
+local a_bit=a%2
+local b_bit=b%2
+if a_bit~=b_bit then r=r+bit end
+a=math.floor(a/2)
+b=math.floor(b/2)
+bit=bit*2
+end
+return r
+end
+{chr(10).join(b91_def_lines)}
 {chr(10).join(a_defs)}
 {b91_full_var}={ ' .. '.join(a_vars) }
 {b91_chars_var}="{b91_chars_lua}"
 local function {b91_decode_func}(str)
-local b=0
-local n=0
+local b={e0}
+local n={e0}
 local out={{}}
 local v=-1
 local dec={{}}
@@ -301,22 +431,22 @@ local c=string.sub(str,i,i)
 local val=dec[c]
 if val then
 if v<0 then v=val else
-v=v+val*91
+v=v+val*{e91}
 b=b+v*(2^n)
-local w=v%8192
-if w>88 then n=n+13 else n=n+14 end
-while n>7 do
-local byte=b%256
+local w=v%{e8192}
+if w>{e88} then n=n+{e13} else n=n+{e14} end
+while n>{e8} do
+local byte=b%{e256}
 table.insert(out,string.char(byte))
-b=math.floor(b/256)
-n=n-8
+b=math.floor(b/{e256})
+n=n-{e8}
 end
 v=-1
 end
 end
 end
 if v>-1 then
-local byte=(b+v*(2^n))%256
+local byte=(b+v*(2^n))%{e256}
 table.insert(out,string.char(byte))
 end
 return table.concat(out)
@@ -362,7 +492,6 @@ if _ok and _fn then pcall(_fn) end
     with open(output_path, 'w', encoding='utf-8') as out:
         out.write(final_code)
     return True
-
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(1)
@@ -387,7 +516,7 @@ show_banner() {
     echo " | |_) || | |___| |__| |__| |_| | |_| | |___ "
     echo " |____/ |_|\____|_____\____\___/|____/|_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE}  BYTECODE v9 - _V1 to _v infinite${RESET}"
+    echo -e "${WHITE}  BYTECODE v9 - damage 1-15 - _V1 infinite${RESET}"
     echo ""
 }
 show_menu() {
@@ -398,7 +527,7 @@ show_menu() {
     echo -e "  ${YELLOW}exit${RESET}    - exit"
     echo -e "${GREEN}----------------------------------------${RESET}"
     echo ""
-    echo -ne "${CYAN}bytecode > ${RESET}"
+    echo -ne "${CYAN}bytecode v9 > ${RESET}"
 }
 do_copy() {
     local file="$1"
@@ -444,7 +573,7 @@ do_obfuscate() {
         cat "$tmp_out" > "$PROJECT_FILE"
         cat "$tmp_out" > "$RESULT_FILE"
         echo -e "${GREEN}----------------------------------------${RESET}"
-        echo -e "${GREEN}[ok] success bytecode _V1 infinite!${RESET}"
+        echo -e "${GREEN}[ok] success bytecode v9 damage $damage!${RESET}"
         wc -c "$RESULT_FILE" | awk '{print "size  : " $1 " bytes"}'
         echo -e "${GREEN}----------------------------------------${RESET}"
         while true; do
@@ -481,10 +610,10 @@ handle_setting() {
         init_settings
         clear
         show_banner
-        echo -e "${WHITE}SETTINGS${RESET}"
+        echo -e "${WHITE}SETTINGS - damage 1-15 (1 pendek, 15 panjang banget)${RESET}"
         echo -e "${GREEN}----------------------------------------${RESET}"
         echo -e "1. oneline    : ${YELLOW}$oneline${RESET}"
-        echo -e "2. damage    : ${YELLOW}$damage${RESET}"
+        echo -e "2. damage    : ${YELLOW}$damage${RESET} (1-15) 1=pendek 15=panjang banget"
         echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET}"
         echo -e "4. short_byte: ${YELLOW}$short_byte${RESET}"
         echo -e "5. use_space : ${YELLOW}$use_space${RESET}"
@@ -494,7 +623,7 @@ handle_setting() {
         read -r s
         case "$s" in
             1) echo -ne "oneline on/off > "; read -r val; sed -i "s/^oneline=.*/oneline=$val/" "$SETTINGS_FILE" ;;
-            2) echo -ne "damage 1-5 > "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
+            2) echo -ne "damage 1-15 > "; read -r val; if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ] && [ "$val" -le 15 ]; then sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE"; else echo -e "${RED}harus 1-15${RESET}"; sleep 1; fi ;;
             3) echo -ne "anti_bug on/off > "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
             4) echo -ne "short_byte on/off > "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
             5) echo -ne "use_space on/off > "; read -r val; sed -i "s/^use_space=.*/use_space=$val/" "$SETTINGS_FILE" ;;
