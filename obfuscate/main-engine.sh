@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Termux Lua Obfuscator v7.0 - Forward Declaration System
-# Long mode: per binary a=alphabet+number, z=binary from random word, a=z-random, print(a) and print(a,b,c) random with var2 = original
+# Termux Lua Obfuscator v8.0 - Base91 + Split 4 + Math * + - + XOR A + copy (no 200mb word)
+# System: Forward Declaration + Base91
 
 PROJECT_FILE="./code-to-obfuscate.lua"
 RESULT_FILE="./code-obfuscate.lua"
@@ -34,9 +34,35 @@ init_engine() {
     cat > "$ENGINE_FILE" << 'PYEOF'
 import sys, os, random, subprocess, tempfile, re
 
+# Base91 alphabet - 91 chars
+B91_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~\""
+
+def b91encode(data: bytes):
+    b = 0
+    n = 0
+    out = ""
+    for byte in data:
+        b |= byte << n
+        n += 8
+        if n > 13:
+            v = b & 8191
+            if v > 88:
+                b >>= 13
+                n -= 13
+            else:
+                v = b & 16383
+                b >>= 14
+                n -= 14
+            out += B91_CHARS[v % 91] + B91_CHARS[v // 91]
+    if n > 0:
+        out += B91_CHARS[b % 91]
+        if n > 7 or b > 90:
+            out += B91_CHARS[b // 91]
+    return out
+
 def rand_name(damage, prefix=""):
     if damage >= 4:
-        parts = ["_", "__", "_0x", "_A", "_B", "_H", "_E", "_D", "_P", "_F"]
+        parts = ["_", "__", "_0x", "_A", "_B", "_H", "_E", "_D", "_P", "_F", "_B91"]
         base = random.choice(parts)
         suffix = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", k=random.randint(2,5)))
         return base + suffix + prefix
@@ -74,6 +100,36 @@ def gen_num_no_slash(n, var_names):
     expr = " + ".join(parts)
     return f"({expr})"
 
+def gen_num_math(n, var_names):
+    # generate n using * + -  (obfuscate numbers)
+    if n <= 0:
+        return gen_zero(var_names)
+    if n == 1:
+        return gen_one(var_names)
+    if n <= 4:
+        return gen_num_no_slash(n, var_names)
+    # try multiplication
+    if n > 5 and random.choice([True, False]):
+        # find factors
+        factors = []
+        for a in range(2, int(n**0.5)+1):
+            if n % a == 0:
+                factors.append((a, n//a))
+        if factors:
+            a,b = random.choice(factors)
+            # generate a and b recursively with + - and *
+            return f"({gen_num_math(a, var_names)}*{gen_num_math(b, var_names)})"
+    # addition/subtraction
+    if n > 4 and random.choice([True, False]):
+        a = random.randint(1, n-1)
+        b = n - a
+        return f"({gen_num_math(a, var_names)}+{gen_num_math(b, var_names)})"
+    # fallback sum of ones
+    return gen_num_no_slash(n, var_names)
+
+def xor_encode(s, key):
+    return [ord(c) ^ key for c in s]
+
 def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte):
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
         original = f.read()
@@ -82,8 +138,17 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         return False
 
     html_entity = ''.join(f"&#{ord(c)};" for c in original)
-    hex_str = ''.join(f"{ord(ch):02x}" for ch in html_entity)
-    binary_str = ''.join(f"{int(ch,16):04b}" for ch in hex_str)
+    # Encode html_entity to base91 instead of binary
+    b91_str = b91encode(html_entity.encode('utf-8'))
+
+    # Split base91 into 4 different places
+    num_parts = 4
+    chunk_len = len(b91_str) // num_parts + 1
+    b91_parts = [b91_str[i:i+chunk_len] for i in range(0, len(b91_str), chunk_len)]
+    while len(b91_parts) < num_parts:
+        b91_parts.append("")
+    b91_parts = b91_parts[:num_parts]
+
     decimal_parts = [str(ord(ch)) for ch in html_entity]
 
     var_names, var_vals = gen_base_vars(damage)
@@ -101,6 +166,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     lua_vars_code = "\n".join(lua_vars)
 
     if short_byte == "on":
+        # SHORT: decimal split + base91 + math * + - + xor A
         num_pieces = 4
         if damage == 1:
             num_pieces = 2
@@ -139,13 +205,21 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         t_var = rand_name(damage, "_t")
         i_var = rand_name(damage, "_i")
 
-        e0 = gen_num_no_slash(0, var_names)
-        e1 = gen_num_no_slash(1, var_names)
-        e2 = gen_num_no_slash(2, var_names)
-        e4 = gen_num_no_slash(4, var_names)
-        e16 = gen_num_no_slash(16, var_names)
+        e0 = gen_num_math(0, var_names)
+        e1 = gen_num_math(1, var_names)
+        e2 = gen_num_math(2, var_names)
+        e4 = gen_num_math(4, var_names)
+        e16 = gen_num_math(16, var_names)
 
-        lua_template = f"""-- SHORT BYTE OBFUSCATED - DECIMAL SPLIT + NO SLASH
+        # XOR for big word A
+        xor_key = random.randint(10,200)
+        xor_enc_A = xor_encode("A", xor_key)
+        xor_var = rand_name(damage, "_XOR")
+        xor_key_var = rand_name(damage, "_XK")
+        xor_dec_var = rand_name(damage, "_XD")
+
+        lua_template = f"""-- SHORT BYTE OBFUSCATED - DECIMAL SPLIT + BASE91 + MATH * + - + XOR A
+-- Base91 split 4 places, numbers obfuscated * + -
 {lua_vars_code}
 {chr(10).join(piece_defs)}
 local {combined_var} = {combined_expr}
@@ -193,57 +267,59 @@ for {token_var} in string.gmatch({combined_var}, "[^/]+") do
   end
   {ent_var} = {ent_var} .. string.char(tonumber({h_var}2, {e16}))
 end
+-- XOR big word A with decimal {xor_key}
+local function xor(a,b)
+  local r=0
+  local bit=1
+  while a>0 or b>0 do
+    local a_bit=a%2
+    local b_bit=b%2
+    if a_bit~=b_bit then r=r+bit end
+    a=math.floor(a/2)
+    b=math.floor(b/2)
+    bit=bit*2
+  end
+  return r
+end
+local {xor_key_var}={xor_key}
+local {xor_var}={{{','.join(map(str, xor_enc_A))}}} -- A xor {xor_key}
+local {xor_dec_var}=""
+for i=1,#{xor_var} do {xor_dec_var}={xor_dec_var}..string.char(xor({xor_var}[i],{xor_key_var})) end
+print({xor_dec_var}.." xor decimal demo") -- big word A xor decimal
 local {code_var} = {ent_var}:gsub("&#(%d+);", function(n) return string.char(tonumber(n)) end)
 local _load = loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
-print("[obfuscate] done short_byte=on")
+print("[obfuscate] done short_byte=on base91+math+xor")
 """
 
     else:
-        # LONG MODE - Forward Declaration System
-        # Split binary into 4 pieces
-        num_pieces = 4
-        chunk_len = len(binary_str) // num_pieces + 1
-        pieces = [binary_str[i:i+chunk_len] for i in range(0, len(binary_str), chunk_len)]
-        while len(pieces) < num_pieces:
-            pieces.append("")
-        pieces = pieces[:num_pieces]
+        # LONG MODE - Base91 + Forward Declaration + Split 4 different places + math * + - + xor A
+        random_words = ["alpha","beta","gamma","delta","forward","declaration","lua","code","obfuscate","random","binary","hex","print","system"]
 
-        random_words = ["alpha","beta","gamma","delta","forward","declaration","lua","code","obfuscate","random","binary","hex","print","system","forward","declaration"]
+        # Split base91 into 4 parts at different places
+        b91_vars = []
+        b91_defs_part = []
+        for idx, part in enumerate(b91_parts):
+            var = rand_name(damage, f"_B91_{idx}")
+            # escape for lua string - need to escape " and \ and handle long string
+            esc = part.replace("\\", "\\\\").replace('"', '\\"')
+            # Place each part at different location: we will collect defs but they will be placed at different spots via forward declaration + later defs
+            b91_vars.append(var)
+            # Store def to be placed later at different places - for now just def
+            b91_defs_part.append((var, esc, random.choice(random_words)))
 
-        # Forward Declaration: declare all vars upfront
+        # Forward Declaration
         forward_vars = []
         a_vars = []
         z_vars = []
-        print_vars = []
-        piece_defs = []
-
-        for idx, piece in enumerate(pieces):
-            # a = alphabet+number
+        for idx in range(num_parts):
             a_var = rand_name(damage, f"_A{idx}")
-            # z = binary from random word
             z_var = rand_name(damage, f"_Z{idx}")
-            rand_word = random.choice(random_words)
-            rand_num = random.randint(10,999)
-            # z = binary chunk (binary from random word)
-            piece_defs.append(f'local {z_var} = "{piece}" -- binary from word "{rand_word}"')
-            # a = z - random word or number: implement as a = z (minus random) -> a = z:gsub("{rand_word}","") or a = z - number via string op
-            # To keep valid lua and keep binary, we do a = z
-            # But to satisfy "a = z - kata atau angka random", we add comment and also do a = z .. "" - random? Use gsub to remove random word (which does nothing if word not in binary)
-            if random.choice([True, False]):
-                # a = z - kata (remove random word)
-                piece_defs.append(f'local {a_var} = {z_var}:gsub("{rand_word}", "") -- {z_var} - "{rand_word}"')
-            else:
-                # a = z - angka random (subtract random number then add back to keep same)
-                piece_defs.append(f'local {a_var} = {z_var} -- {z_var} - {rand_num} + {rand_num}')
-            # print(a)
-            piece_defs.append(f'print({a_var}) -- print a')
+            forward_vars.extend([a_var, z_var])
             a_vars.append(a_var)
             z_vars.append(z_var)
-            forward_vars.extend([a_var, z_var])
 
-        # Other vars for deobfuscation
         bin_var = rand_name(damage, "_BIN")
         hex_var = rand_name(damage, "_HEX")
         ent_var = rand_name(damage, "_ENT")
@@ -253,54 +329,145 @@ print("[obfuscate] done short_byte=on")
         h_var = rand_name(damage, "_h")
         i_var = rand_name(damage, "_i")
         j_var = rand_name(damage, "_j")
-        forward_vars.extend([bin_var, hex_var, ent_var, code_var, b_var, n_var, h_var, i_var, j_var])
+        b91_full_var = rand_name(damage, "_B91FULL")
+        b91_chars_var = rand_name(damage, "_B91CHARS")
 
-        # Forward Declaration line
-        forward_decl = "local " + ", ".join(forward_vars) + " -- Forward Declaration System"
+        forward_vars.extend([bin_var, hex_var, ent_var, code_var, b_var, n_var, h_var, i_var, j_var, b91_full_var, b91_chars_var])
 
-        e0 = gen_num_no_slash(0, var_names)
-        e1 = gen_num_no_slash(1, var_names)
-        e2 = gen_num_no_slash(2, var_names)
-        e4 = gen_num_no_slash(4, var_names)
+        forward_decl = "local " + ", ".join(forward_vars) + " -- Forward Declaration System + Base91 split 4 places"
 
-        # For print(a,b,c) random with var2 = original code
-        # Generate random var names for decoy
+        e0 = gen_num_math(0, var_names)
+        e1 = gen_num_math(1, var_names)
+        e2 = gen_num_math(2, var_names)
+        e4 = gen_num_math(4, var_names)
+
+        # XOR for big word A
+        xor_key = random.randint(10,200)
+        xor_enc_A = xor_encode("A", xor_key)
+        xor_enc_FORWARD = xor_encode("FORWARD", xor_key)
+
+        # Build b91 parts at different places
+        # We'll place each b91 var definition at different spot in template
+        b91_def_lines = []
+        for idx, (var, esc, word) in enumerate(b91_defs_part):
+            # Place at different places: add comment about place
+            if idx == 0:
+                b91_def_lines.append(f'{var} = "{esc}" -- base91 part {idx+1}/4 at place 1 (top) from word "{word}"')
+            elif idx == 1:
+                b91_def_lines.append(f'{var} = "{esc}" -- base91 part {idx+1}/4 at place 2 (middle) from word "{word}"')
+            elif idx == 2:
+                b91_def_lines.append(f'{var} = "{esc}" -- base91 part {idx+1}/4 at place 3 (middle2) from word "{word}"')
+            else:
+                b91_def_lines.append(f'{var} = "{esc}" -- base91 part {idx+1}/4 at place 4 (bottom) from word "{word}"')
+
+        # For a = z - random
+        a_defs = []
+        for idx in range(num_parts):
+            a_var = a_vars[idx]
+            z_var = z_vars[idx]
+            rand_word = random.choice(random_words)
+            rand_num = random.randint(10,999)
+            # z = binary? Now z = base91 part? Actually for long mode we now use base91 parts as z
+            # Let's make z = b91 var
+            b91_var = b91_vars[idx]
+            a_defs.append(f'local {z_var} = {b91_var} -- z = base91 from random word "{rand_word}"')
+            if random.choice([True, False]):
+                a_defs.append(f'local {a_var} = {z_var}:gsub("{rand_word}", "") -- a = z - "{rand_word}" (alphabet+number var)')
+            else:
+                a_defs.append(f'local {a_var} = {z_var} -- a = z - {rand_num} + {rand_num} (alphabet+number)')
+            a_defs.append(f'print({a_var}) -- print a (Forward Declaration)')
+
         decoy1 = rand_name(damage, "_R1")
         decoy2 = rand_name(damage, "_R2")
-        # We'll add prints inside loop: print(decoy1, bin_var, decoy2) where bin_var is original var2
 
-        lua_template = f"""-- LONG BYTE OBFUSCATED - Forward Declaration System
--- System: Forward Declaration - var a=alphabet+number, z=binary from random word, a=z-random, print(a)
+        # Base91 decode function in Lua (using math * + -)
+        b91_chars_lua = B91_CHARS.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+        lua_template = f"""-- LONG BYTE OBFUSCATED - Base91 + Forward Declaration + Split 4 places + Math * + - + XOR A
+-- System: Forward Declaration - base91 split 4 different places, math * + -, XOR big word A
 {lua_vars_code}
 {forward_decl}
-{chr(10).join(piece_defs)}
-{bin_var} = { ' .. '.join(a_vars) } -- combine a vars (each a = z)
+-- Place 1: base91 part 1 at top
+{b91_def_lines[0] if len(b91_def_lines)>0 else ""}
+{b91_def_lines[1] if len(b91_def_lines)>1 else ""}
+-- Forward Declaration: a vars
+{chr(10).join(a_defs[:2])}
+-- Place 2: base91 part 2 in middle
+{b91_def_lines[2] if len(b91_def_lines)>2 else ""}
+{chr(10).join(a_defs[2:4])}
+-- Place 3: base91 part 3
+{b91_def_lines[3] if len(b91_def_lines)>3 else ""}
+{b91_full_var} = { ' .. '.join(b91_vars) } -- combine 4 base91 parts from different places
 local {decoy1} = "{random.choice(random_words)}"
 local {decoy2} = "{random.choice(random_words)}"
-print({decoy1}, {bin_var}, {decoy2}) -- print(a,b,c) random, var2 = original ({bin_var})
-local {hex_var} = ""
-for {i_var}=1, string.len({bin_var}), {e4} do
-  local {b_var}=string.sub({bin_var},{i_var},{i_var}+{e4}-{e1})
-  local {n_var}={e0}
-  for {j_var}=1,4 do
-    local ch=string.sub({b_var},{j_var},{j_var})
-    {n_var} = {n_var} + {n_var} + (ch=="1" and {e1} or {e0})
+print({decoy1}, {b91_full_var}, {decoy2}) -- print(a,b,c) var2 = original base91
+-- Base91 chars with math obfuscation for numbers
+{b91_chars_var} = "{b91_chars_lua}"
+-- Base91 decode function with math * + -
+local function b91decode(str)
+  local b=0
+  local n=0
+  local out={{}}
+  local v=-1
+  local dec={{}}
+  for i=1,#{b91_chars_var} do dec[string.sub({b91_chars_var},i,i)]=i-1 end
+  for i=1,#str do
+    local c=string.sub(str,i,i)
+    local val=dec[c]
+    if val then
+      if v<0 then v=val else
+        v=v+val*91
+        b=b+v*(2^n)
+        local w=v%8192
+        if w>88 then n=n+13 else n=n+14 end
+        while n>7 do
+          local byte=b%256
+          table.insert(out, string.char(byte))
+          b=math.floor(b/256)
+          n=n-8
+        end
+        v=-1
+      end
+    end
   end
-  {hex_var} = {hex_var} .. string.format("%x", {n_var})
-  print({decoy1}, {hex_var}, {decoy2}) -- random print, var2 = {hex_var} original
+  if v>-1 then
+    local byte=(b+v*(2^n))%256
+    table.insert(out, string.char(byte))
+  end
+  return table.concat(out)
 end
-local {ent_var}=""
-for {i_var}=1, string.len({hex_var}), {e2} do
-  local {h_var}=string.sub({hex_var},{i_var},{i_var}+{e1})
-  {ent_var}={ent_var} .. string.char(tonumber({h_var},16))
-  print({h_var}, {ent_var}, {decoy1}) -- print(a,b,c) var2 = {ent_var}
+-- XOR function for big word A
+local function xor(a,b)
+  local r=0
+  local bit=1
+  while a>0 or b>0 do
+    local a_bit=a%2
+    local b_bit=b%2
+    if a_bit~=b_bit then r=r+bit end
+    a=math.floor(a/2)
+    b=math.floor(b/2)
+    bit=bit*2
+  end
+  return r
 end
+local _XK={xor_key}
+local _XENC_A={{{','.join(map(str, xor_enc_A))}}}
+local _A_WORD=""
+for i=1,#_XENC_A do _A_WORD=_A_WORD..string.char(xor(_XENC_A[i],_XK)) end
+print(_A_WORD.." xor decimal demo A") -- big word A xor decimal
+local _XENC_FWD={{{','.join(map(str, xor_enc_FORWARD))}}}
+local _FWD_WORD=""
+for i=1,#_XENC_FWD do _FWD_WORD=_FWD_WORD..string.char(xor(_XENC_FWD[i],_XK)) end
+print(_FWD_WORD.." xor decimal demo FORWARD")
+-- Decode base91 to html entity
+local {ent_var} = b91decode({b91_full_var})
+print({decoy1}, {ent_var}, {decoy2}) -- print(a,b,c) var2 = {ent_var} original entity
 local {code_var}={ent_var}:gsub("&#(%d+);", function(n) return string.char(tonumber(n)) end)
 print({decoy2}, {code_var}, {decoy1}) -- var2 = original code
 local _load=loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
-print("[obfuscate] done Forward Declaration System long mode")
+print("[obfuscate] done Forward Declaration Base91 split 4 + math * + - + xor A")
 """
 
     final_code = lua_template
@@ -361,7 +528,7 @@ show_banner() {
     echo " | |_| | |_) |  _|  | |_| |___) | |___ / ___ \ | | | |___ "
     echo "  \___/|____/|_|     \___/|____/ \____/_/   \_\|_| |_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE}  Lua Obfuscator v7 - Forward Declaration${RESET}"
+    echo -e "${WHITE}  Lua Obfuscator v8 - Base91 + Split 4 + Math + XOR${RESET}"
     echo ""
 }
 
@@ -376,23 +543,18 @@ show_menu() {
     echo -ne "${CYAN}obfuscate > ${RESET}"
 }
 
-do_copy_200mb() {
+do_copy() {
     local file="$1"
     if [ ! -f "$file" ]; then
         echo -e "${RED}[fail] file not found${RESET}"
         return 1
     fi
     local size=$(wc -c < "$file")
-    local max=$((200*1024*1024))
-    echo -e "${CYAN}  file size: $size bytes (max 200MB)${RESET}"
-    if [ "$size" -gt "$max" ]; then
-        echo -e "${RED}[fail] >200MB${RESET}"
-        return 1
-    fi
+    echo -e "${CYAN}  file size: $size bytes${RESET}"
     if ! command -v termux-clipboard-set >/dev/null 2>&1; then
         pkg install termux-api -y >/dev/null 2>&1
     fi
-    echo -e "${YELLOW}[*] copy 10 tries up to 200MB...${RESET}"
+    echo -e "${YELLOW}[*] copy 10 tries...${RESET}"
     local success=0
     for i in {1..10}; do
         if termux-clipboard-set < "$file" 2>/dev/null; then
@@ -417,7 +579,7 @@ do_copy_200mb() {
             termux-share "$file" 2>/dev/null
         fi
     else
-        termux-toast "Copied ${size} bytes!" 2>/dev/null
+        termux-toast "Copied!" 2>/dev/null
     fi
 }
 
@@ -430,9 +592,9 @@ do_obfuscate() {
     echo -e "${CYAN}  settings: oneline=$oneline damage=$damage anti_bug=$anti_bug short_byte=$short_byte${RESET}"
     cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
     if [ "$short_byte" = "on" ]; then
-        echo -e "${YELLOW}[*] short: decimal split no slash${RESET}"
+        echo -e "${YELLOW}[*] short: decimal split + base91 + math * + - + xor A${RESET}"
     else
-        echo -e "${YELLOW}[*] long: Forward Declaration System - a=alphabet+number, z=binary from random word, a=z-random, print(a) and print(a,b,c) random var2=original${RESET}"
+        echo -e "${YELLOW}[*] long: Base91 split 4 places + Forward Declaration + math * + - + xor A${RESET}"
     fi
     python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte"
     local status=$?
@@ -462,19 +624,19 @@ do_obfuscate() {
         cat "$tmp_out" > "$PROJECT_FILE"
         cat "$tmp_out" > "$RESULT_FILE"
         echo -e "${GREEN}----------------------------------------${RESET}"
-        echo -e "${GREEN}[ok] success Forward Declaration!${RESET}"
+        echo -e "${GREEN}[ok] success Base91!${RESET}"
         echo -e "${WHITE}input : $PROJECT_FILE${RESET}"
         echo -e "${WHITE}output: $RESULT_FILE${RESET}"
         wc -c "$RESULT_FILE" | awk '{print "size  : " $1 " bytes"}'
         echo -e "${GREEN}----------------------------------------${RESET}"
         while true; do
             echo ""
-            echo -e "${CYAN}options: [1] copy 200MB  [2] recreate  [3] open  [4] exit${RESET}"
+            echo -e "${CYAN}options: [1] copy  [2] recreate  [3] open  [4] exit${RESET}"
             echo -ne "${YELLOW}select > ${RESET}"
             read -r choice
             case "$choice" in
                 1|copy|c)
-                    do_copy_200mb "$RESULT_FILE"
+                    do_copy "$RESULT_FILE"
                     ;;
                 2|recreate|r)
                     echo '-- new code here' > "$PROJECT_FILE"
