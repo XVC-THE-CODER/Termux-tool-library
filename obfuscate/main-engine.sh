@@ -33,8 +33,9 @@ def rand_name(damage=3, prefix=""):
     global _counter
     _counter += 1
     return f"_V{_counter}{prefix}"
+
 def gen_base_vars(damage):
-    count = max(2, min(8, damage//2 + 2))
+    count = 3 if damage <=2 else 4 if damage==3 else 5
     names, vals = [], {}
     for _ in range(count):
         n = rand_name(damage)
@@ -43,50 +44,41 @@ def gen_base_vars(damage):
         names.append(n)
         vals[n] = random.randint(111, 9999)
     return names, vals
+
 def gen_zero(var_names):
     v = random.choice(var_names)
     return f"({v}-{v})"
+
 def gen_one(var_names):
     v = random.choice(var_names)
     return f"({v}-{v}+1)"
-def gen_num_math(n, var_names, complex_level=1):
+
+def gen_num_math(n, var_names):
     if n <= 0:
         return gen_zero(var_names)
     if n == 1:
         return gen_one(var_names)
-    if complex_level <= 1 or n <= 3:
+    if n <= 4:
         parts = []
         for i in range(n):
             v = random.choice(var_names)
             parts.append(f"{v}-{v}+1")
         return f"({'+'.join(parts)})"
-    if n > 10 and random.random() < 0.6:
+    if n > 5 and random.choice([True, False]):
         for a in range(2, int(n**0.5)+1):
             if n % a == 0:
                 b = n//a
-                return f"({gen_num_math(a, var_names, complex_level-1)}*{gen_num_math(b, var_names, complex_level-1)})"
-    if n > 5 and random.random() < 0.7:
+                return f"({gen_num_math(a, var_names)}*{gen_num_math(b, var_names)})"
+    if n > 4 and random.choice([True, False]):
         a = random.randint(1, n-1)
         b = n - a
-        if random.choice([True, False]):
-            return f"({gen_num_math(a, var_names, complex_level-1)}+{gen_num_math(b, var_names, complex_level-1)})"
-        else:
-            b2 = random.randint(1, 20)
-            a2 = n + b2
-            return f"({gen_num_math(a2, var_names, complex_level-1)}-{gen_num_math(b2, var_names, complex_level-1)})"
-    if n > 6:
-        a = random.randint(2, 5)
-        b = n // a
-        r = n % a
-        if r == 0:
-            return f"({gen_num_math(a, var_names, complex_level-1)}*{gen_num_math(b, var_names, complex_level-1)})"
-        else:
-            return f"({gen_num_math(a, var_names, complex_level-1)}*{gen_num_math(b, var_names, complex_level-1)}+{gen_num_math(r, var_names, complex_level-1)})"
+        return f"({gen_num_math(a, var_names)}+{gen_num_math(b, var_names)})"
     parts = []
     for i in range(n):
         v = random.choice(var_names)
         parts.append(f"{v}-{v}+1")
     return f"({'+'.join(parts)})"
+
 def b91encode(data: bytes):
     b = 0
     n = 0
@@ -109,36 +101,13 @@ def b91encode(data: bytes):
         if n > 7 or b > 90:
             out += B91_CHARS[b // 91]
     return out
-def lua_char_expr(c, var_names, damage, xor_func_name):
-    prob = min(0.9, damage / 15.0)
-    is_symbol = c in "!#$%&()*+,./:;<=>?@[]^_`{|}~\""
-    is_digit = c.isdigit()
-    is_upper = c.isupper()
-    use_obf = False
-    if is_symbol or is_digit or is_upper:
-        if random.random() < prob:
-            use_obf = True
-    if not use_obf:
-        if c == "\\":
-            return '"\\\\"'
-        elif c == '"':
-            return '"\\""'
-        else:
-            return f'"{c}"'
-    else:
-        if random.random() < 0.5:
-            math_expr = gen_num_math(ord(c), var_names, complex_level=min(3, damage//3 +1))
-            return f'string.char({math_expr})'
-        else:
-            key = random.randint(10,200)
-            enc = ord(c) ^ key
-            math_enc = gen_num_math(enc, var_names, complex_level=min(3, damage//3 +1))
-            math_key = gen_num_math(key, var_names, complex_level=min(3, damage//3 +1))
-            return f'string.char({xor_func_name}({math_enc},{math_key}))'
+
+def xor_encode(s, key):
+    return [ord(c) ^ key for c in s]
+
 def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space):
     global _counter
     _counter = 0
-    damage = max(1, min(15, int(damage)))
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
         original = f.read()
     if not original.strip():
@@ -146,15 +115,8 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         return False
     html_entity = ''.join(f"&#{ord(c)};" for c in original)
     b91_str = b91encode(html_entity.encode('utf-8'))
-    num_parts = 3
-    if damage >= 10:
-        num_parts = 4
-    if damage >= 13:
-        num_parts = 5
+    num_parts = 4
     chunk_len = len(b91_str) // num_parts + 1
-    if damage <= 3:
-        chunk_len = len(b91_str) // 2 + 1
-        num_parts = 2
     b91_parts = [b91_str[i:i+chunk_len] for i in range(0, len(b91_str), chunk_len)]
     while len(b91_parts) < num_parts:
         b91_parts.append("")
@@ -164,26 +126,19 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     lua_vars = []
     for name in var_names:
         lua_vars.append(f"local {name}={var_vals[name]}")
-    junk_count = damage * 2 if damage <=5 else damage * 3
-    if damage >= 10:
-        junk_count = damage * 4
-    for _ in range(junk_count):
-        junk_name = rand_name(damage, "")
-        base = random.choice(var_names)
-        lua_vars.append(f"local {junk_name}={base}+{random.randint(1,10)}-{random.randint(1,10)}+{base}-{base}")
-        if random.random() < 0.5:
+    if damage >= 4:
+        for _ in range(damage):
+            junk_name = rand_name(damage, "_j")
+            base = random.choice(var_names)
+            lua_vars.append(f"local {junk_name}={base}+{random.randint(1,5)}-{random.randint(1,5)}+{base}-{base}")
             lua_vars.append(f"if {base}-{base}=={gen_one(var_names)} then local {rand_name(damage)}={gen_zero(var_names)} end")
     lua_vars_code = "\n".join(lua_vars)
     if short_byte == "on":
-        num_pieces = 3
+        num_pieces = 4
         if damage == 1:
-            num_pieces = 1
-        elif damage <= 3:
             num_pieces = 2
-        elif damage >= 10:
-            num_pieces = 5
-        elif damage >= 13:
-            num_pieces = 7
+        elif damage >=4:
+            num_pieces = 6
         chunk = len(decimal_parts) // num_pieces + 1
         pieces = []
         for i in range(0, len(decimal_parts), chunk):
@@ -196,7 +151,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         piece_vars = []
         piece_defs = []
         for idx, piece in enumerate(pieces):
-            var = rand_name(damage, "")
+            var = rand_name(damage, f"")
             esc = piece.replace("\\", "\\\\").replace('"', '\\"')
             piece_defs.append(f'local {var}="{esc}"')
             piece_vars.append(var)
@@ -213,12 +168,13 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         r_var = rand_name(damage, "")
         t_var = rand_name(damage, "")
         i_var = rand_name(damage, "")
-        e0 = gen_num_math(0, var_names, complex_level=damage//3 +1)
-        e1 = gen_num_math(1, var_names, complex_level=damage//3 +1)
-        e2 = gen_num_math(2, var_names, complex_level=damage//3 +1)
-        e4 = gen_num_math(4, var_names, complex_level=damage//3 +1)
-        e16 = gen_num_math(16, var_names, complex_level=damage//3 +1)
-        xor_func_name = rand_name(damage, "")
+        e0 = gen_num_math(0, var_names)
+        e1 = gen_num_math(1, var_names)
+        e2 = gen_num_math(2, var_names)
+        e4 = gen_num_math(4, var_names)
+        e16 = gen_num_math(16, var_names)
+        xor_key = random.randint(10,200)
+        xor_enc_A = xor_encode("A", xor_key)
         lua_template = f"""{lua_vars_code}
 {chr(10).join(piece_defs)}
 local {combined_var}={combined_expr}
@@ -266,7 +222,7 @@ end
 end
 {ent_var}={ent_var}..string.char(tonumber({h_var}2,{e16}))
 end
-local function {xor_func_name}(a,b)
+local function _{rand_name(damage)}(a,b)
 local r=0
 local bit=1
 while a>0 or b>0 do
@@ -285,23 +241,13 @@ local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
 """
     else:
-        b91_decode_func = rand_name(damage, "")
-        xor_func_name = rand_name(damage, "")
         b91_vars = []
         b91_defs = []
         for idx, part in enumerate(b91_parts):
             var = rand_name(damage, "")
-            char_exprs = []
-            for c in part:
-                if damage == 1:
-                    esc_c = c.replace("\\", "\\\\").replace('"', '\\"')
-                    char_exprs.append(f'"{esc_c}"')
-                else:
-                    expr = lua_char_expr(c, var_names, damage, xor_func_name)
-                    char_exprs.append(expr)
-            obf_expr = " .. ".join(char_exprs) if char_exprs else '""'
+            esc = part.replace("\\", "\\\\").replace('"', '\\"')
             b91_vars.append(var)
-            b91_defs.append((var, obf_expr))
+            b91_defs.append(f'local {var}="{esc}"')
         forward_vars = []
         a_vars = []
         z_vars = []
@@ -324,22 +270,11 @@ if _ok and _fn then pcall(_fn) end
         b91_chars_var = rand_name(damage, "")
         forward_vars.extend([bin_var, hex_var, ent_var, code_var, b_var, n_var, h_var, i_var, j_var, b91_full_var, b91_chars_var])
         forward_decl = "local " + ",".join(forward_vars)
-        e0 = gen_num_math(0, var_names, complex_level=damage//3 +1)
-        e1 = gen_num_math(1, var_names, complex_level=damage//3 +1)
-        e2 = gen_num_math(2, var_names, complex_level=damage//3 +1)
-        e4 = gen_num_math(4, var_names, complex_level=damage//3 +1)
-        e8 = gen_num_math(8, var_names, complex_level=damage//3 +1)
-        e13 = gen_num_math(13, var_names, complex_level=damage//3 +1)
-        e14 = gen_num_math(14, var_names, complex_level=damage//3 +1)
-        e91 = gen_num_math(91, var_names, complex_level=damage//3 +1)
-        e256 = gen_num_math(256, var_names, complex_level=damage//3 +1)
-        e8191 = gen_num_math(8191, var_names, complex_level=damage//3 +1)
-        e8192 = gen_num_math(8192, var_names, complex_level=damage//3 +1)
-        e88 = gen_num_math(88, var_names, complex_level=damage//3 +1)
+        e0 = gen_num_math(0, var_names)
+        e1 = gen_num_math(1, var_names)
+        e2 = gen_num_math(2, var_names)
+        e4 = gen_num_math(4, var_names)
         b91_chars_lua = B91_CHARS.replace("\\", "\\\\").replace('"', '\\"')
-        b91_def_lines = []
-        for idx, (var, esc) in enumerate(b91_defs):
-            b91_def_lines.append(f'local {var}={esc}')
         a_defs = []
         for idx in range(num_parts):
             a_var = a_vars[idx]
@@ -347,28 +282,16 @@ if _ok and _fn then pcall(_fn) end
             b91_var = b91_vars[idx]
             a_defs.append(f'local {z_var}={b91_var}')
             a_defs.append(f'local {a_var}={z_var}')
+        b91_decode_func = rand_name(damage, "")
         lua_template = f"""{lua_vars_code}
 {forward_decl}
-local function {xor_func_name}(a,b)
-local r=0
-local bit=1
-while a>0 or b>0 do
-local a_bit=a%2
-local b_bit=b%2
-if a_bit~=b_bit then r=r+bit end
-a=math.floor(a/2)
-b=math.floor(b/2)
-bit=bit*2
-end
-return r
-end
-{chr(10).join(b91_def_lines)}
+{chr(10).join(b91_defs)}
 {chr(10).join(a_defs)}
 {b91_full_var}={ ' .. '.join(a_vars) }
 {b91_chars_var}="{b91_chars_lua}"
 local function {b91_decode_func}(str)
-local b={e0}
-local n={e0}
+local b=0
+local n=0
 local out={{}}
 local v=-1
 local dec={{}}
@@ -378,22 +301,22 @@ local c=string.sub(str,i,i)
 local val=dec[c]
 if val then
 if v<0 then v=val else
-v=v+val*{e91}
+v=v+val*91
 b=b+v*(2^n)
-local w=v%{e8192}
-if w>{e88} then n=n+{e13} else n=n+{e14} end
-while n>{e8} do
-local byte=b%{e256}
+local w=v%8192
+if w>88 then n=n+13 else n=n+14 end
+while n>7 do
+local byte=b%256
 table.insert(out,string.char(byte))
-b=math.floor(b/{e256})
-n=n-{e8}
+b=math.floor(b/256)
+n=n-8
 end
 v=-1
 end
 end
 end
 if v>-1 then
-local byte=(b+v*(2^n))%{e256}
+local byte=(b+v*(2^n))%256
 table.insert(out,string.char(byte))
 end
 return table.concat(out)
@@ -439,6 +362,7 @@ if _ok and _fn then pcall(_fn) end
     with open(output_path, 'w', encoding='utf-8') as out:
         out.write(final_code)
     return True
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(1)
@@ -456,85 +380,124 @@ PYEOF
 }
 show_banner() {
     clear
-    echo -e "${CYAN}BYTECODE v1.1${RESET}"
+    echo -e "${CYAN}"
+    echo "  ____ __   ______ _____ ____ ___  ____  _____ "
+    echo " | __ ) \ / / ___| ____/ ___/ _ \|  _ \| ____|"
+    echo " |  _ \\ V / |   |  _|| |  | | | | | | |  _|  "
+    echo " | |_) || | |___| |__| |__| |_| | |_| | |___ "
+    echo " |____/ |_|\____|_____\____\___/|____/|_____|"
+    echo -e "${RESET}"
+    echo -e "${WHITE}  BYTECODE v9 - _V1 to _v infinite${RESET}"
+    echo ""
 }
 show_menu() {
-    echo -e "${GREEN}--------------------${RESET}"
-    echo -e "1. start"
-    echo -e "2. setting"
-    echo -e "3. exit"
-    echo -e "${GREEN}--------------------${RESET}"
-    echo -ne "${CYAN}> ${RESET}"
+    echo -e "${GREEN}----------------------------------------${RESET}"
+    echo -e "  MENU"
+    echo -e "  ${YELLOW}start${RESET}   - create and obfuscate"
+    echo -e "  ${YELLOW}setting${RESET} - settings"
+    echo -e "  ${YELLOW}exit${RESET}    - exit"
+    echo -e "${GREEN}----------------------------------------${RESET}"
+    echo ""
+    echo -ne "${CYAN}bytecode > ${RESET}"
 }
 do_copy() {
     local file="$1"
-    if [ ! -f "$file" ]; then echo -e "${RED}fail${RESET}"; return 1; fi
+    if [ ! -f "$file" ]; then echo -e "${RED}[fail] file not found${RESET}"; return 1; fi
     local size=$(wc -c < "$file")
-    echo -e "${CYAN}size: $size${RESET}"
+    echo -e "${CYAN}  file size: $size bytes${RESET}"
     if ! command -v termux-clipboard-set >/dev/null 2>&1; then pkg install termux-api -y >/dev/null 2>&1; fi
+    echo -e "${YELLOW}[*] copy 10 tries...${RESET}"
+    local success=0
     for i in {1..10}; do
-        if termux-clipboard-set < "$file" 2>/dev/null; then echo -e "${GREEN}copy ok $i${RESET}"; return 0; fi
+        if termux-clipboard-set < "$file" 2>/dev/null; then echo -e "${GREEN}[ok] copy success try $i${RESET}"; success=1; break; fi
+        if cat "$file" | termux-clipboard-set 2>/dev/null; then echo -e "${GREEN}[ok] copy success try $i method2${RESET}"; success=1; break; fi
+        sleep 0.5
     done
-    if [ -d "/sdcard/Download" ]; then cp "$file" "/sdcard/Download/$(basename "$file")" 2>/dev/null; echo -e "${GREEN}saved Download${RESET}"; fi
+    if [ $success -eq 0 ]; then
+        echo -e "${RED}[fail] copy failed${RESET}"
+        if [ -d "/sdcard/Download" ]; then cp "$file" "/sdcard/Download/$(basename "$file")" 2>/dev/null; echo -e "${GREEN}[ok] saved to /sdcard/Download/${RESET}"; fi
+        if command -v termux-share >/dev/null 2>&1; then termux-share "$file" 2>/dev/null; fi
+    else
+        termux-toast "Copied!" 2>/dev/null
+    fi
 }
 do_obfuscate() {
     local tmp_out="$HOME/.obfuscate_temp.lua"
     if [ -d "/data/data/com.termux/files/usr/tmp" ]; then tmp_out="/data/data/com.termux/files/usr/tmp/obf_temp.lua"; fi
     init_settings
-    echo -e "${CYAN}set: $oneline $damage $anti_bug $short_byte $use_space${RESET}"
+    echo -e "${CYAN}  settings: oneline=$oneline damage=$damage anti_bug=$anti_bug short_byte=$short_byte use_space=$use_space${RESET}"
     cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
     python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space"
-    if [ $? -ne 0 ] || [ ! -f "$tmp_out" ]; then echo -e "${RED}fail${RESET}"; return 1; fi
+    local status=$?
+    if [ $status -ne 0 ] || [ ! -f "$tmp_out" ]; then echo -e "${RED}[fail] obfuscate failed${RESET}"; return 1; fi
+    echo -e "${YELLOW}[*] test 5 times...${RESET}"
+    local test_ok=0
     for t in {1..5}; do
         if command -v luac >/dev/null 2>&1; then
-            if luac -p "$tmp_out" >/dev/null 2>&1; then break; else python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space"; fi
+            if luac -p "$tmp_out" >/dev/null 2>&1; then echo -e "${GREEN}  [ok] test $t${RESET}"; test_ok=1; else echo -e "${RED}  [fail] test $t regen${RESET}"; python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space"; fi
         else
-            break
+            echo -e "${GREEN}  [ok] test $t logic ok${RESET}"; test_ok=1; break
         fi
+        sleep 0.2
     done
-    cat "$tmp_out" > "$PROJECT_FILE"
-    cat "$tmp_out" > "$RESULT_FILE"
-    echo -e "${GREEN}ok${RESET}"
-    wc -c "$RESULT_FILE"
-    while true; do
-        echo -e "${CYAN}[1] copy [2] new [3] open [4] exit${RESET}"
-        echo -ne "${YELLOW}> ${RESET}"
-        read -r choice
-        case "$choice" in
-            1|copy|c) do_copy "$RESULT_FILE" ;;
-            2|recreate|r) echo 'print("new")' > "$PROJECT_FILE"; nano "$PROJECT_FILE"; do_obfuscate; break ;;
-            3|open|o) nano "$RESULT_FILE" ;;
-            4|exit|e|q) break ;;
-        esac
-    done
-    rm -f "$tmp_out"
+    if [ $test_ok -eq 1 ]; then
+        cat "$tmp_out" > "$PROJECT_FILE"
+        cat "$tmp_out" > "$RESULT_FILE"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -e "${GREEN}[ok] success bytecode _V1 infinite!${RESET}"
+        wc -c "$RESULT_FILE" | awk '{print "size  : " $1 " bytes"}'
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        while true; do
+            echo ""
+            echo -e "${CYAN}options: [1] copy  [2] recreate  [3] open  [4] exit${RESET}"
+            echo -ne "${YELLOW}select > ${RESET}"
+            read -r choice
+            case "$choice" in
+                1|copy|c) do_copy "$RESULT_FILE" ;;
+                2|recreate|r) echo '-- new code here' > "$PROJECT_FILE"; echo 'print("new")' >> "$PROJECT_FILE"; nano "$PROJECT_FILE"; echo -ne "${YELLOW}obfuscate new? (y/n): ${RESET}"; read -r yn; if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then do_obfuscate; fi; break ;;
+                3|open|o) nano "$RESULT_FILE" ;;
+                4|exit|e|q) break ;;
+                *) echo -e "${RED}invalid${RESET}" ;;
+            esac
+        done
+        rm -f "$tmp_out"
+    else
+        echo -e "${RED}[fail] validation${RESET}"
+    fi
 }
 handle_start() {
     rm -f "$PROJECT_FILE"
-    echo 'print("hello")' > "$PROJECT_FILE"
+    echo '-- new lua code' > "$PROJECT_FILE"
+    echo 'print("hello")' >> "$PROJECT_FILE"
     nano "$PROJECT_FILE"
-    if [ ! -s "$PROJECT_FILE" ]; then echo -e "${RED}empty${RESET}"; return; fi
-    do_obfuscate
+    if [ ! -s "$PROJECT_FILE" ]; then echo -e "${RED}[fail] empty${RESET}"; return; fi
+    head -n 15 "$PROJECT_FILE"
+    echo -ne "${YELLOW}obfuscate now? (y/n): ${RESET}"
+    read -r yn
+    if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then do_obfuscate; fi
 }
 handle_setting() {
     while true; do
         init_settings
         clear
         show_banner
-        echo -e "1. oneline: $oneline"
-        echo -e "2. damage: $damage (1-15)"
-        echo -e "3. anti_bug: $anti_bug"
-        echo -e "4. short_byte: $short_byte"
-        echo -e "5. use_space: $use_space"
+        echo -e "${WHITE}SETTINGS${RESET}"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -e "1. oneline    : ${YELLOW}$oneline${RESET}"
+        echo -e "2. damage    : ${YELLOW}$damage${RESET}"
+        echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET}"
+        echo -e "4. short_byte: ${YELLOW}$short_byte${RESET}"
+        echo -e "5. use_space : ${YELLOW}$use_space${RESET}"
         echo -e "6. back"
-        echo -ne "> "
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -ne "${CYAN}select 1-6 > ${RESET}"
         read -r s
         case "$s" in
-            1) echo -ne "oneline: "; read -r val; sed -i "s/^oneline=.*/oneline=$val/" "$SETTINGS_FILE" ;;
-            2) echo -ne "damage 1-15: "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
-            3) echo -ne "anti_bug: "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
-            4) echo -ne "short_byte: "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
-            5) echo -ne "use_space: "; read -r val; sed -i "s/^use_space=.*/use_space=$val/" "$SETTINGS_FILE" ;;
+            1) echo -ne "oneline on/off > "; read -r val; sed -i "s/^oneline=.*/oneline=$val/" "$SETTINGS_FILE" ;;
+            2) echo -ne "damage 1-5 > "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
+            3) echo -ne "anti_bug on/off > "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
+            4) echo -ne "short_byte on/off > "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
+            5) echo -ne "use_space on/off > "; read -r val; sed -i "s/^use_space=.*/use_space=$val/" "$SETTINGS_FILE" ;;
             6|q|exit) break ;;
         esac
     done
@@ -547,8 +510,9 @@ while true; do
     read -r input
     cmd=$(echo "$input" | tr '[:upper:]' '[:lower:]' | xargs)
     case "$cmd" in
-        start|1|s) handle_start ;;
+        start|1|s) handle_start; echo -e "${YELLOW}press enter...${RESET}"; read -r ;;
         setting|settings|2|set) handle_setting ;;
-        exit|3|q|quit) exit 0 ;;
+        exit|3|q|quit) echo -e "${GREEN}bye!${RESET}"; exit 0 ;;
+        *) echo -e "${RED}unknown: $input${RESET}"; sleep 1 ;;
     esac
 done
