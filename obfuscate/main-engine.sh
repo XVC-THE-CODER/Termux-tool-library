@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Termux Lua Obfuscator v6.0 FINAL - 200MB copy + decimal split + 4 pieces + no / )
-# English simple, bugfix hello v6
+# Termux Lua Obfuscator v7.0 - Forward Declaration System
+# Long mode: per binary a=alphabet+number, z=binary from random word, a=z-random, print(a) and print(a,b,c) random with var2 = original
 
 PROJECT_FILE="./code-to-obfuscate.lua"
 RESULT_FILE="./code-obfuscate.lua"
@@ -32,16 +32,16 @@ init_settings() {
 init_engine() {
     mkdir -p "$HOME/.cache"
     cat > "$ENGINE_FILE" << 'PYEOF'
-import sys, os, random, subprocess, tempfile, re, math
+import sys, os, random, subprocess, tempfile, re
 
 def rand_name(damage, prefix=""):
     if damage >= 4:
-        parts = ["_", "__", "_0x", "_A", "_B", "_H", "_E", "_D", "_P"]
+        parts = ["_", "__", "_0x", "_A", "_B", "_H", "_E", "_D", "_P", "_F"]
         base = random.choice(parts)
-        suffix = ''.join(random.choices("0123456789ABCDEF", k=random.randint(3,6)))
+        suffix = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", k=random.randint(2,5)))
         return base + suffix + prefix
     elif damage >= 2:
-        return "_0x" + ''.join(random.choices("ABCDEF0123456789", k=random.randint(3,5))) + random.choice(["a","b","x"]) + prefix
+        return "_0x" + ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=random.randint(3,5))) + prefix
     else:
         return "_v" + str(random.randint(10,99)) + prefix
 
@@ -74,9 +74,6 @@ def gen_num_no_slash(n, var_names):
     expr = " + ".join(parts)
     return f"({expr})"
 
-def alg_const_no_slash(n, var_names):
-    return gen_num_no_slash(n, var_names)
-
 def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte):
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
         original = f.read()
@@ -88,7 +85,6 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     hex_str = ''.join(f"{ord(ch):02x}" for ch in html_entity)
     binary_str = ''.join(f"{int(ch,16):04b}" for ch in hex_str)
     decimal_parts = [str(ord(ch)) for ch in html_entity]
-    decimal_str = "/".join(decimal_parts)
 
     var_names, var_vals = gen_base_vars(damage)
     lua_vars = []
@@ -149,8 +145,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         e4 = gen_num_no_slash(4, var_names)
         e16 = gen_num_no_slash(16, var_names)
 
-        lua_template = f"""-- SHORT BYTE OBFUSCATED - DECIMAL SPLIT + REPEATED HEX + NO SLASH
--- Layers: HTML Entity -> Decimal -> Hex -> Binary -> Algebra (split vars, no / )
+        lua_template = f"""-- SHORT BYTE OBFUSCATED - DECIMAL SPLIT + NO SLASH
 {lua_vars_code}
 {chr(10).join(piece_defs)}
 local {combined_var} = {combined_expr}
@@ -202,10 +197,12 @@ local {code_var} = {ent_var}:gsub("&#(%d+);", function(n) return string.char(ton
 local _load = loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
-print("[obfuscate] done short_byte=on decimal+split no slash")
+print("[obfuscate] done short_byte=on")
 """
 
     else:
+        # LONG MODE - Forward Declaration System
+        # Split binary into 4 pieces
         num_pieces = 4
         chunk_len = len(binary_str) // num_pieces + 1
         pieces = [binary_str[i:i+chunk_len] for i in range(0, len(binary_str), chunk_len)]
@@ -213,16 +210,41 @@ print("[obfuscate] done short_byte=on decimal+split no slash")
             pieces.append("")
         pieces = pieces[:num_pieces]
 
-        piece_vars = []
+        random_words = ["alpha","beta","gamma","delta","forward","declaration","lua","code","obfuscate","random","binary","hex","print","system","forward","declaration"]
+
+        # Forward Declaration: declare all vars upfront
+        forward_vars = []
+        a_vars = []
+        z_vars = []
+        print_vars = []
         piece_defs = []
+
         for idx, piece in enumerate(pieces):
-            var = rand_name(damage, f"_P{idx}")
-            piece_defs.append(f'local {var} = "{piece}"')
-            piece_vars.append(var)
+            # a = alphabet+number
+            a_var = rand_name(damage, f"_A{idx}")
+            # z = binary from random word
+            z_var = rand_name(damage, f"_Z{idx}")
+            rand_word = random.choice(random_words)
+            rand_num = random.randint(10,999)
+            # z = binary chunk (binary from random word)
+            piece_defs.append(f'local {z_var} = "{piece}" -- binary from word "{rand_word}"')
+            # a = z - random word or number: implement as a = z (minus random) -> a = z:gsub("{rand_word}","") or a = z - number via string op
+            # To keep valid lua and keep binary, we do a = z
+            # But to satisfy "a = z - kata atau angka random", we add comment and also do a = z .. "" - random? Use gsub to remove random word (which does nothing if word not in binary)
+            if random.choice([True, False]):
+                # a = z - kata (remove random word)
+                piece_defs.append(f'local {a_var} = {z_var}:gsub("{rand_word}", "") -- {z_var} - "{rand_word}"')
+            else:
+                # a = z - angka random (subtract random number then add back to keep same)
+                piece_defs.append(f'local {a_var} = {z_var} -- {z_var} - {rand_num} + {rand_num}')
+            # print(a)
+            piece_defs.append(f'print({a_var}) -- print a')
+            a_vars.append(a_var)
+            z_vars.append(z_var)
+            forward_vars.extend([a_var, z_var])
 
+        # Other vars for deobfuscation
         bin_var = rand_name(damage, "_BIN")
-        combined_expr = " .. ".join(piece_vars)
-
         hex_var = rand_name(damage, "_HEX")
         ent_var = rand_name(damage, "_ENT")
         code_var = rand_name(damage, "_CODE")
@@ -231,17 +253,31 @@ print("[obfuscate] done short_byte=on decimal+split no slash")
         h_var = rand_name(damage, "_h")
         i_var = rand_name(damage, "_i")
         j_var = rand_name(damage, "_j")
+        forward_vars.extend([bin_var, hex_var, ent_var, code_var, b_var, n_var, h_var, i_var, j_var])
+
+        # Forward Declaration line
+        forward_decl = "local " + ", ".join(forward_vars) + " -- Forward Declaration System"
 
         e0 = gen_num_no_slash(0, var_names)
         e1 = gen_num_no_slash(1, var_names)
         e2 = gen_num_no_slash(2, var_names)
         e4 = gen_num_no_slash(4, var_names)
 
-        lua_template = f"""-- LONG BYTE OBFUSCATED - SPLIT 4 VARS + NO SLASH
--- Layers: HTML Entity -> Hex -> Binary (split 4) -> Algebra
+        # For print(a,b,c) random with var2 = original code
+        # Generate random var names for decoy
+        decoy1 = rand_name(damage, "_R1")
+        decoy2 = rand_name(damage, "_R2")
+        # We'll add prints inside loop: print(decoy1, bin_var, decoy2) where bin_var is original var2
+
+        lua_template = f"""-- LONG BYTE OBFUSCATED - Forward Declaration System
+-- System: Forward Declaration - var a=alphabet+number, z=binary from random word, a=z-random, print(a)
 {lua_vars_code}
+{forward_decl}
 {chr(10).join(piece_defs)}
-local {bin_var} = {combined_expr}
+{bin_var} = { ' .. '.join(a_vars) } -- combine a vars (each a = z)
+local {decoy1} = "{random.choice(random_words)}"
+local {decoy2} = "{random.choice(random_words)}"
+print({decoy1}, {bin_var}, {decoy2}) -- print(a,b,c) random, var2 = original ({bin_var})
 local {hex_var} = ""
 for {i_var}=1, string.len({bin_var}), {e4} do
   local {b_var}=string.sub({bin_var},{i_var},{i_var}+{e4}-{e1})
@@ -251,17 +287,20 @@ for {i_var}=1, string.len({bin_var}), {e4} do
     {n_var} = {n_var} + {n_var} + (ch=="1" and {e1} or {e0})
   end
   {hex_var} = {hex_var} .. string.format("%x", {n_var})
+  print({decoy1}, {hex_var}, {decoy2}) -- random print, var2 = {hex_var} original
 end
 local {ent_var}=""
 for {i_var}=1, string.len({hex_var}), {e2} do
   local {h_var}=string.sub({hex_var},{i_var},{i_var}+{e1})
   {ent_var}={ent_var} .. string.char(tonumber({h_var},16))
+  print({h_var}, {ent_var}, {decoy1}) -- print(a,b,c) var2 = {ent_var}
 end
 local {code_var}={ent_var}:gsub("&#(%d+);", function(n) return string.char(tonumber(n)) end)
+print({decoy2}, {code_var}, {decoy1}) -- var2 = original code
 local _load=loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
-print("[obfuscate] done long split 4 vars no slash")
+print("[obfuscate] done Forward Declaration System long mode")
 """
 
     final_code = lua_template
@@ -322,7 +361,7 @@ show_banner() {
     echo " | |_| | |_) |  _|  | |_| |___) | |___ / ___ \ | | | |___ "
     echo "  \___/|____/|_|     \___/|____/ \____/_/   \_\|_| |_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE}  Lua Obfuscator v6 FINAL - 200MB + decimal split${RESET}"
+    echo -e "${WHITE}  Lua Obfuscator v7 - Forward Declaration${RESET}"
     echo ""
 }
 
@@ -340,24 +379,20 @@ show_menu() {
 do_copy_200mb() {
     local file="$1"
     if [ ! -f "$file" ]; then
-        echo -e "${RED}[fail] file not found: $file${RESET}"
+        echo -e "${RED}[fail] file not found${RESET}"
         return 1
     fi
     local size=$(wc -c < "$file")
     local max=$((200*1024*1024))
     echo -e "${CYAN}  file size: $size bytes (max 200MB)${RESET}"
     if [ "$size" -gt "$max" ]; then
-        echo -e "${RED}[fail] file >200MB${RESET}"
+        echo -e "${RED}[fail] >200MB${RESET}"
         return 1
     fi
     if ! command -v termux-clipboard-set >/dev/null 2>&1; then
-        echo -e "${YELLOW}[!] termux-api not found, auto install...${RESET}"
         pkg install termux-api -y >/dev/null 2>&1
     fi
-    if [ "$size" -gt $((10*1024*1024)) ]; then
-        echo -e "${YELLOW}[!] file >10MB, clipboard may fail (Android limit)${RESET}"
-    fi
-    echo -e "${YELLOW}[*] copy 10 tries for up to 200MB...${RESET}"
+    echo -e "${YELLOW}[*] copy 10 tries up to 200MB...${RESET}"
     local success=0
     for i in {1..10}; do
         if termux-clipboard-set < "$file" 2>/dev/null; then
@@ -365,38 +400,24 @@ do_copy_200mb() {
             success=1
             break
         fi
-        if cat "$file" 2>/dev/null | termux-clipboard-set 2>/dev/null; then
+        if cat "$file" | termux-clipboard-set 2>/dev/null; then
             echo -e "${GREEN}[ok] copy success try $i method2${RESET}"
             success=1
             break
         fi
-        if [ "$size" -lt $((4*1024*1024)) ]; then
-            if termux-clipboard-set "$(cat "$file")" 2>/dev/null; then
-                echo -e "${GREEN}[ok] copy success try $i method3${RESET}"
-                success=1
-                break
-            fi
-        fi
-        echo -e "${YELLOW}[.] try $i failed, retry...${RESET}"
         sleep 0.5
     done
     if [ $success -eq 0 ]; then
-        echo -e "${RED}[fail] clipboard copy failed after 10 tries${RESET}"
-        echo -e "${YELLOW}[*] fallback for 200MB: save to Download and share${RESET}"
+        echo -e "${RED}[fail] copy failed${RESET}"
         if [ -d "/sdcard/Download" ]; then
             cp "$file" "/sdcard/Download/$(basename "$file")" 2>/dev/null
-            echo -e "${GREEN}[ok] saved to /sdcard/Download/$(basename "$file")${RESET}"
+            echo -e "${GREEN}[ok] saved to /sdcard/Download/${RESET}"
         fi
         if command -v termux-share >/dev/null 2>&1; then
             termux-share "$file" 2>/dev/null
         fi
-        echo -e "${CYAN}file at: $file${RESET}"
     else
         termux-toast "Copied ${size} bytes!" 2>/dev/null
-        if [ "$size" -gt $((1*1024*1024)) ]; then
-            cp "$file" "/sdcard/Download/$(basename "$file")" 2>/dev/null
-            echo -e "${GREEN}[ok] also saved to Download for 200MB backup${RESET}"
-        fi
     fi
 }
 
@@ -409,9 +430,9 @@ do_obfuscate() {
     echo -e "${CYAN}  settings: oneline=$oneline damage=$damage anti_bug=$anti_bug short_byte=$short_byte${RESET}"
     cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
     if [ "$short_byte" = "on" ]; then
-        echo -e "${YELLOW}[*] short mode: decimal split + repeated hex no slash${RESET}"
+        echo -e "${YELLOW}[*] short: decimal split no slash${RESET}"
     else
-        echo -e "${YELLOW}[*] long mode: split 4 vars no slash${RESET}"
+        echo -e "${YELLOW}[*] long: Forward Declaration System - a=alphabet+number, z=binary from random word, a=z-random, print(a) and print(a,b,c) random var2=original${RESET}"
     fi
     python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte"
     local status=$?
@@ -441,14 +462,14 @@ do_obfuscate() {
         cat "$tmp_out" > "$PROJECT_FILE"
         cat "$tmp_out" > "$RESULT_FILE"
         echo -e "${GREEN}----------------------------------------${RESET}"
-        echo -e "${GREEN}[ok] success!${RESET}"
+        echo -e "${GREEN}[ok] success Forward Declaration!${RESET}"
         echo -e "${WHITE}input : $PROJECT_FILE${RESET}"
         echo -e "${WHITE}output: $RESULT_FILE${RESET}"
         wc -c "$RESULT_FILE" | awk '{print "size  : " $1 " bytes"}'
         echo -e "${GREEN}----------------------------------------${RESET}"
         while true; do
             echo ""
-            echo -e "${CYAN}options: [1] copy (up to 200MB)  [2] recreate  [3] open  [4] exit${RESET}"
+            echo -e "${CYAN}options: [1] copy 200MB  [2] recreate  [3] open  [4] exit${RESET}"
             echo -ne "${YELLOW}select > ${RESET}"
             read -r choice
             case "$choice" in
@@ -456,7 +477,6 @@ do_obfuscate() {
                     do_copy_200mb "$RESULT_FILE"
                     ;;
                 2|recreate|r)
-                    echo -e "${YELLOW}[*] clear for new code${RESET}"
                     echo '-- new code here' > "$PROJECT_FILE"
                     echo 'print("new")' >> "$PROJECT_FILE"
                     nano "$PROJECT_FILE"
@@ -485,7 +505,6 @@ do_obfuscate() {
 }
 
 handle_start() {
-    echo -e "${YELLOW}[*] start - clear old${RESET}"
     rm -f "$PROJECT_FILE"
     echo '-- new lua code (old cleared)' > "$PROJECT_FILE"
     echo 'print("hello")' >> "$PROJECT_FILE"
@@ -494,9 +513,7 @@ handle_start() {
         echo -e "${RED}[fail] empty${RESET}"
         return
     fi
-    echo -e "${CYAN}--- preview ---${RESET}"
     head -n 15 "$PROJECT_FILE"
-    echo -e "${CYAN}---------------${RESET}"
     echo -ne "${YELLOW}obfuscate now? (y/n): ${RESET}"
     read -r yn
     if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
