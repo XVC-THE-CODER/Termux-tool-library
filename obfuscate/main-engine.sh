@@ -126,32 +126,16 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
 
     lua_vars_code = "\n".join(lua_vars + junk_lines)
 
-    xor_func_name = rand_name(damage, "_x")
-    xor_func_code = f"""local function {xor_func_name}(a,b)
-    local r,bit=0,1
-    while a>0 or b>0 do
-        local a_bit=a%2
-        local b_bit=b%2
-        if a_bit~=b_bit then r=r+bit end
-        a=math.floor(a/2)
-        b=math.floor(b/2)
-        bit=bit*2
-    end
-    return r
-end"""
-
     symbol_exprs = []
     for char in b91_str:
         val = ord(char)
-        if random.random() < 0.5:
-            k = random.randint(10, 200)
-            x_val = val ^ k
-            e_x = gen_num_math(x_val, var_names, damage)
-            e_k = gen_num_math(k, var_names, damage)
-            symbol_exprs.append(f"string.char({xor_func_name}({e_x},{e_k}))")
-        else:
+        if char.isalpha() and random.random() < 0.10:
+            symbol_exprs.append(f"string.char(0x{val:02X})")
+        elif random.random() < 0.25:
             e_dec = gen_num_math(val, var_names, damage)
             symbol_exprs.append(f"string.char({e_dec})")
+        else:
+            symbol_exprs.append(f"string.char({val})")
 
     num_chunks = max(1, min(damage, len(symbol_exprs)))
     chunk_size = (len(symbol_exprs) + num_chunks - 1) // num_chunks
@@ -176,7 +160,6 @@ end"""
     code_var = rand_name(damage, "_code")
 
     lua_template = f"""{lua_vars_code}
-{xor_func_code}
 {chr(10).join(chunk_defs)}
 {combine_b91}
 {b91_chars_def}
