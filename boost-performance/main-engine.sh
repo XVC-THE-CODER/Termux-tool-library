@@ -66,7 +66,7 @@ full_reset(){
 abort_check(){
   if read -t 0.1 -n 1 2>/dev/null; then
     clear
-    echo -e "${R}[!] ENTER Terdeteksi - Mematikan semua system...${NC}"
+    echo -e "${R}exited in boost${NC}"
     full_reset
     echo -e "${G}✔ $TXT_STOP_TXT - All Reset Secured${NC}"
     exit 0
