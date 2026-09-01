@@ -11,14 +11,16 @@ _v=$(getprop $(echo cm8uYnVpbGQudmVyc2lvbi5yZWxlYXNl | base64 -d) 2>/dev/null)
 [ -z "$_b" ] && _b=$(echo R2VuZXJpYw== | base64 -d)
 [ -z "$_m" ] && _m=$(echo RGV2aWNl | base64 -d)
 [ -z "$_c" ] && _c=$(echo VW5rbm93bg== | base64 -d)
-TXT_APP=$(echo djIuNSAgICAgYm9vc3QgcGVyZm9tYW5jZSBnYW1l | base64 -d)
+TXT_APP=$(echo djIuNiAgICAgYm9vc3QgcGVyZm9tYW5jZSBnYW1l | base64 -d)
 TXT_VER="VERSION"
 TXT_FUNGSI="FUNCTION LIST"
 TXT_INFO="INFO"
 TXT_TEMP="Temp"
 TXT_RAM="RAM Free"
+TXT_PING="Ping"
 TXT_TEKAN="Press [ENTER] to STOP"
 TXT_STOP_TXT="STOP"
+
 if [ "$_g" -le 4 ]; then
   TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 elif [ "$_g" -le 6 ]; then
@@ -31,7 +33,46 @@ fi
 if echo "$_c" | grep -qi "mt6765\|helio\|G35\|G25\|G85"; then
   TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 fi
+
 safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.08; }
+
+full_reset(){
+  safe_set global private_dns_mode opportunistic
+  safe_set global private_dns_specifier ""
+  safe_set system pointer_speed 3
+  safe_set secure long_press_timeout 400
+  safe_set system min_refresh_rate 60
+  safe_set system peak_refresh_rate 60
+  safe_set global window_animation_scale 1
+  safe_set global transition_animation_scale 1
+  safe_set global animator_duration_scale 1
+  safe_set system view_configuration_touch_slop 8
+  safe_set system touch.pressure.scale 1.0
+  safe_set system touch.size.scale 1.0
+  safe_set system tap_duration_threshold 100
+  safe_set system gesture_exclusion_limit 200
+  safe_set global block_untrusted_touches 1
+  safe_set global captive_portal_detection_enabled 1
+  safe_set global wifi_suspend_optimizations_enabled 1
+  safe_set global wifi_scan_throttle_enabled 1
+  safe_set global mobile_data_always_on 0
+  safe_set global network_avoid_bad_wifi 1
+  termux-wake-unlock 2>/dev/null
+  if command -v termux-notification-remove >/dev/null 2>&1; then
+    termux-notification-remove tool_up >/dev/null 2>&1
+  fi
+}
+
+abort_check(){
+  if read -t 0.1 -n 1 2>/dev/null; then
+    clear
+    echo -e "${R}[!] ENTER Terdeteksi - Mematikan semua system...${NC}"
+    full_reset
+    echo -e "${G}✔ $TXT_STOP_TXT - All Reset Secured${NC}"
+    exit 0
+  fi
+}
+
 get_temp(){
   MAX=0
   for f in /sys/class/thermal/thermal_zone*/temp; do
@@ -44,6 +85,14 @@ get_temp(){
   echo $MAX
 }
 get_ram_free(){ free -m | awk '/Mem:/{print $7}'; }
+get_ping(){
+  P=$(ping -c 1 -W 1 1.1.1.1 2>/dev/null | grep -o 'time=[0-9.]*' | cut -d= -f2 | cut -d. -f1)
+  if [ -z "$P" ]; then
+    P=$(ping -c 1 -W 1 8.8.8.8 2>/dev/null | grep -o 'time=[0-9.]*' | cut -d= -f2 | cut -d. -f1)
+  fi
+  [ -z "$P" ] && P=0
+  echo $P
+}
 get_fps_auto(){
   TEMP=$(get_temp); RAM=$(get_ram_free)
   if [ "$TIER" -eq 1 ]; then MAX_FPS=60
@@ -62,6 +111,7 @@ has_cooler(){
   fi
 }
 if has_cooler; then COOLER_ENABLED=1; COOLER_STATUS="AUTO"; else COOLER_ENABLED=0; COOLER_STATUS="NOT SUPPORTED - DISABLED"; fi
+
 stealth_cache_clean(){
   pm trim-caches 2048M >/dev/null 2>&1
   for p in /sdcard/Android/data/*/cache /sdcard/Android/data/*/files/cache /sdcard/Android/obb/*/cache /sdcard/DCIM/.thumbnails /sdcard/.cache; do
@@ -110,6 +160,24 @@ boost_cpu_gpu(){
   safe_set secure refresh_rate_mode 1
   renice -n -10 $$ >/dev/null 2>&1
 }
+ultra_ping_boost(){
+  safe_set global private_dns_mode hostname
+  safe_set global private_dns_specifier $(echo b25lLm9uZS5vbmUub25l | base64 -d)
+  safe_set global captive_portal_detection_enabled 0
+  safe_set global captive_portal_mode 0
+  safe_set global wifi_suspend_optimizations_enabled 0
+  safe_set global wifi_scan_throttle_enabled 0
+  safe_set global mobile_data_always_on 1
+  safe_set global network_avoid_bad_wifi 0
+  safe_set global ble_scan_always_enabled 0
+  safe_set global wifi_power_save 0
+  sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+  sysctl -w net.core.rmem_max=16777216 >/dev/null 2>&1
+  sysctl -w net.core.wmem_max=16777216 >/dev/null 2>&1
+  sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
+  ndc resolver clearnetdns default >/dev/null 2>&1
+  cmd connectivity set-airplane-mode false >/dev/null 2>&1 &
+}
 slippery_logic(){
   TEMP=$1; FPS=$2
   if [ "$FPS" -ge 55 ]; then SLOP=4; PRESS=0.25; TO=150; SIZE=0.3
@@ -152,7 +220,7 @@ cooler_logic(){
 notify_start(){
   echo -e "${Y}update : $1${NC}"
   if command -v termux-notification >/dev/null 2>&1; then
-    termux-notification --id tool_up --title "System Tool" --content "update : $1" --priority low >/dev/null 2>&1
+    termux-notification --id tool_up --title "System Tool v2.6" --content "update : $1" --priority low >/dev/null 2>&1
   fi
 }
 notify_clear(){
@@ -162,11 +230,16 @@ notify_clear(){
   fi
 }
 draw_box(){
-  TEMP=$1; RAM=$2; FPS=$3; COOLER_INFO=$4; TIER_NOW=$5; BOOST_NOW=$6
+  TEMP=$1; RAM=$2; FPS=$3; PING=$4; COOLER_INFO=$5; TIER_NOW=$6; BOOST_NOW=$7
   PERC=$((FPS*100/60)); [ "$PERC" -gt 100 ] && PERC=100
   FILL=$((PERC/10))
   BAR=$(printf "%${FILL}s" | tr ' ' '#')
   EBAR=$(printf "%$((10-FILL))s" | tr ' ' '-')
+  if [ "$PING" -le 40 ]; then PING_COLOR=$G; PING_STAT="EXCELLENT"
+  elif [ "$PING" -le 80 ]; then PING_COLOR=$Y; PING_STAT="GOOD"
+  elif [ "$PING" -le 120 ]; then PING_COLOR=$Y; PING_STAT="STABLE"
+  else PING_COLOR=$R; PING_STAT="HIGH"; fi
+  [ "$PING" -eq 0 ] && PING_STAT="CHECKING"
   clear
   echo -e "${C}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}"
   echo -e " ${W}$TXT_VER : $TXT_APP${NC}"
@@ -180,13 +253,14 @@ draw_box(){
   echo -e " ${G}[✓]${NC} ${W}frame optimize : V-Sync Stable${NC}"
   echo -e " ${G}[✓]${NC} ${W}game loading : Fast Load Active${NC}"
   echo -e " ${G}[✓]${NC} ${W}map gen : Chunk Preload 12 Active${NC}"
+  echo -e " ${G}[✓]${NC} ${W}ping boost : ${PING_COLOR}$PING ms [$PING_STAT]${NC}"
   if [ "$COOLER_ENABLED" -eq 1 ]; then
     echo -e " ${G}[✓]${NC} ${W}cooler cpu gpu : $COOLER_INFO${NC}"
   else
     echo -e " ${R}[x]${NC} ${W}cooler cpu gpu : $COOLER_STATUS${NC}"
   fi
   echo -e "${C}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫${NC}"
-  echo -e " ${W}$TXT_INFO : RAM ${_g}GB Free ${RAM}MB | Andro $_v${NC}"
+  echo -e " ${W}$TXT_INFO : RAM ${_g}GB Free ${RAM}MB | Andro $_v | $TXT_PING ${PING_COLOR}${PING}ms${NC}"
   echo -e " ${W}$TXT_TEMP:${TEMP}°C $TXT_RAM:${RAM}MB FPS:${G}$FPS${NC} [${G}${BAR}${W}${EBAR}] $PERC%${NC}"
   echo -e "${C}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
   echo ""
@@ -194,19 +268,29 @@ draw_box(){
 termux-wake-lock 2>/dev/null
 CYCLE=0
 while true; do
-  TEMP=$(get_temp); RAM=$(get_ram_free); FPS=$(get_fps_auto); CYCLE=$((CYCLE+1))
+  TEMP=$(get_temp); RAM=$(get_ram_free); FPS=$(get_fps_auto); PING=$(get_ping); CYCLE=$((CYCLE+1))
   COOLER_INFO=$(cooler_logic $TEMP)
-  draw_box $TEMP $RAM $FPS "$COOLER_INFO" "$TIER_NAME" "$BOOST_POWER"
-  notify_start "anti lag"; ultra_anti_lag; notify_clear
-  notify_start "block ads"; ultra_anti_ads; notify_clear
-  notify_start "cpu gpu"; boost_cpu_gpu; notify_clear
-  notify_start "slippery sensitivity"; slippery_logic $TEMP $FPS; notify_clear
-  notify_start "frame optimize"; sleep 0.1; notify_clear
-  notify_start "game loading"; game_loader_boost; notify_clear
-  notify_start "map gen"; map_gen_boost; notify_clear
+  draw_box $TEMP $RAM $FPS "$PING" "$COOLER_INFO" "$TIER_NAME" "$BOOST_POWER"
+
+  abort_check
+  notify_start "anti lag"; ultra_anti_lag; notify_clear; abort_check
+  notify_start "block ads"; ultra_anti_ads; notify_clear; abort_check
+  notify_start "ping boost ${PING}ms"; ultra_ping_boost; notify_clear; abort_check
+  notify_start "cpu gpu"; boost_cpu_gpu; notify_clear; abort_check
+  notify_start "slippery sensitivity"; slippery_logic $TEMP $FPS; notify_clear; abort_check
+  notify_start "frame optimize"; sleep 0.1; notify_clear; abort_check
+  notify_start "game loading"; game_loader_boost; notify_clear; abort_check
+  notify_start "map gen"; map_gen_boost; notify_clear; abort_check
   if [ "$COOLER_ENABLED" -eq 1 ]; then notify_start "$COOLER_INFO"; sleep 0.2; notify_clear; fi
   if [ $((CYCLE % 5)) -eq 0 ]; then notify_start "cache clean"; stealth_cache_clean; notify_clear; fi
-  echo -e "${G}[$(date +%T)] ALL IN ONE: $BOOST_POWER | $COOLER_INFO${NC}"
+  abort_check
+  echo -e "${G}[$(date +%T)] ALL IN ONE: $BOOST_POWER | $PING ms | $COOLER_INFO${NC}"
   echo -e "${W}>> $TXT_TEKAN <<${NC}"
-  if read -t 2; then clear; echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"; safe_set global private_dns_mode opportunistic; safe_set system pointer_speed 3; safe_set secure long_press_timeout 400; safe_set system min_refresh_rate 60; if command -v termux-notification-remove >/dev/null 2>&1; then termux-notification-remove tool_up >/dev/null 2>&1; fi; exit 0; fi
+  if read -t 2; then
+    clear
+    echo -e "${R}[!] STOP REQUESTED - Resetting...${NC}"
+    full_reset
+    echo -e "${G}✔ $TXT_STOP_TXT - Secured${NC}"
+    exit 0
+  fi
 done
