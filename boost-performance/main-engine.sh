@@ -1,6 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
 R='\033[1;31m'; G='\033[1;32m'; Y='\033[1;33m'; C='\033[1;36m'; W='\033[1;37m'; NC='\033[0m'
-
 _b=$(getprop ro.product.brand 2>/dev/null)
 _m=$(getprop ro.product.model 2>/dev/null)
 _board=$(getprop ro.board.platform 2>/dev/null)
@@ -10,37 +9,28 @@ _gb=$((_kb / 1024 / 1024))
 _ver=$(getprop ro.build.version.release 2>/dev/null)
 [ -z "$_brand" ] && _brand="Generic"
 [ -z "$_model" ] && _model="Device"
-
 TMPDIR="$HOME/.cache/boost_v27"
 LOGFILE="$TMPDIR/boost.log"
 mkdir -p "$TMPDIR"
 touch "$LOGFILE"
-
 MODULE_LIST="anti_malware bg_killer anti_lag block_ads ping_boost wifi_boost cpu_gpu slippery game_loader map_gen cache_clean cooler ram_boost thermal dns_boost sensor audio"
-
 init_status(){
   mkdir -p "$TMPDIR"
-  for mod in $MODULE_LIST; do
-    echo "idle" > "$TMPDIR/$mod.status" 2>/dev/null
-  done
+  for mod in $MODULE_LIST; do echo "idle" > "$TMPDIR/$mod.status" 2>/dev/null; done
   echo "INIT" > "$TMPDIR/wifi_mode.txt" 2>/dev/null
   echo "AUTO" > "$TMPDIR/cooler_info.txt" 2>/dev/null
   echo "0" > "$TMPDIR/ping.txt" 2>/dev/null
   touch "$LOGFILE"
 }
 init_status
-
 if [ "$_gb" -le 4 ]; then TIER=1; TIER_NAME="LOW"; BOOST_POWER="50% BALANCED"; MAX_CPU_PERCENT=80; REFRESH=60; ANIM=0.5; SENS=9
 elif [ "$_gb" -le 6 ]; then TIER=2; TIER_NAME="MID"; BOOST_POWER="75% PERFORMANCE"; MAX_CPU_PERCENT=90; REFRESH=90; ANIM=0.3; SENS=9
 elif [ "$_gb" -le 8 ]; then TIER=3; TIER_NAME="HIGH"; BOOST_POWER="100% TURBO"; MAX_CPU_PERCENT=100; REFRESH=120; ANIM=0.0; SENS=10
 else TIER=4; TIER_NAME="EXTREME"; BOOST_POWER="120% EXTREME OC"; MAX_CPU_PERCENT=100; REFRESH=144; ANIM=0.0; SENS=10; fi
-
 is_rooted=0
 if su -c "id" >/dev/null 2>&1; then is_rooted=1; fi
-
 log_msg(){ echo "[$(date +%T)] $1" >> "$LOGFILE" 2>/dev/null; }
 safe_set(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; sleep 0.08; log_msg "SET $1 $2 $3"; }
-
 full_reset(){
   for pid in $(jobs -p 2>/dev/null); do kill -9 $pid >/dev/null 2>&1; done
   safe_set global private_dns_mode opportunistic
@@ -79,7 +69,6 @@ full_reset(){
   log_msg "FULL RESET"
 }
 trap 'full_reset; exit 0' INT TERM
-
 abort_check(){
   if read -t 0.1 -n 1 2>/dev/null; then
     clear
@@ -89,7 +78,6 @@ abort_check(){
     exit 0
   fi
 }
-
 get_temp(){
   MAX=0
   for f in /sys/class/thermal/thermal_zone*/temp; do
@@ -146,11 +134,10 @@ has_cooler(){
   ls /sys/class/thermal/thermal_zone* >/dev/null 2>&1 && return 0
   return 1
 }
-if! has_cooler; then
+if ! has_cooler; then
   echo "unsupported" > "$TMPDIR/cooler.status" 2>/dev/null
   echo "NOT SUPPORTED" > "$TMPDIR/cooler_info.txt" 2>/dev/null
 fi
-
 stealth_cache_clean(){
   pm trim-caches 3072M >/dev/null 2>&1
   for p in /sdcard/Android/data/*/cache /sdcard/DCIM/.thumbnails /sdcard/.cache; do rm -rf $p/* 2>/dev/null; done
@@ -300,7 +287,11 @@ map_gen_boost(){
 cooler_logic(){
   TEMP=$1
   mkdir -p "$TMPDIR"
-  if! has_cooler; then echo "NOT SUPPORTED" > "$TMPDIR/cooler_info.txt"; echo "unsupported" > "$TMPDIR/cooler.status"; return; fi
+  if ! has_cooler; then
+    echo "NOT SUPPORTED" > "$TMPDIR/cooler_info.txt"
+    echo "unsupported" > "$TMPDIR/cooler.status"
+    return
+  fi
   if [ "$TEMP" -ge 48 ]; then MODE="COOLER EXTREME $TEMP°C"; am kill-all >/dev/null 2>&1
   elif [ "$TEMP" -ge 44 ]; then MODE="COOLER HARD $TEMP°C"
   else MODE="COOLER STABLE $TEMP°C"; fi
@@ -353,7 +344,7 @@ draw_box(){
   if [ "$UPD_COUNT" -gt 0 ]; then
     echo -e "${C}┃${Y} UPDATE ($UPD_COUNT) : $UPD_LIST${NC}"
   else
-    echo -e "${C}┃${G} UPDATE (0) : All Done - $BOOST_POWER${NC}"
+    echo -e "${C}┃${G} UPDATE (0) : All Done${NC}"
   fi
   echo -e "${C}┃${G} ${BAR}${W}${EBAR} $PERC% FPS:$FPS | $WIFI_INFO | Temp ${TEMP}C${NC} ${C}┃${NC}"
   echo -e "${C}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
@@ -387,7 +378,7 @@ while true; do
       s=$(cat "$f" 2>/dev/null)
       if [ "$s" = "updating" ]; then
         UPD_COUNT=$((UPD_COUNT+1))
-        name=$(basename "$f".status)
+        name=$(basename "$f" .status)
         if [ -z "$UPD_LIST" ]; then UPD_LIST="$name"; else UPD_LIST="$UPD_LIST, $name"; fi
       fi
     done
