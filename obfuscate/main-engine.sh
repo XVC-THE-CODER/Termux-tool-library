@@ -120,11 +120,11 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     _counter = 0
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
         user_code = f.read()
-    if not original.strip() if 'original' in locals() else not user_code.strip():
-        pass
+    if not user_code.strip():
+        print("EMPTY")
+        return False
 
-    original = f'''
-local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
+    original = '''local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
 local salt = "XyZ_88_SecretSalt"
 local k = 211
 
@@ -170,7 +170,7 @@ local function getClues(key)
         elseif c:match("%%d") then countDigit = countDigit + 1
         else countSymbol = countSymbol + 1 end
     end
-    return {{
+    return {
         frontType = "mixed",
         middleType = "mixed", 
         backType = "mixed",
@@ -180,7 +180,7 @@ local function getClues(key)
         countSymbol = countSymbol,
         posUpper = posUpper,
         posLower = posLower
-    }}
+    }
 end
 
 local tries = 0
@@ -195,7 +195,7 @@ local function labyrinth()
 end
 
 local _state = 101
-local _blocks = {{}}
+local _blocks = {}
 
 local function decodeState(s)
     return (s - 100)
@@ -213,9 +213,9 @@ _blocks[1] = function()
 end
 
 _blocks[2] = function()
-    local a = string.byte("\\u{{61}}") - 97
-    local b = string.byte("\\u{{62}}") - 97
-    local c = string.byte("\\u{{63}}") - 97
+    local a = string.byte("\\u{61}") - 97
+    local b = string.byte("\\u{62}") - 97
+    local c = string.byte("\\u{63}") - 97
     local calc = math.floor(math.sqrt((a + b + c + k) * 100))
     print("[CFF] Math check: " .. calc)
     return 103
@@ -250,7 +250,7 @@ end
 _blocks[4] = function()
     print("[CFF] Running protected main code...")
     labyrinth()
-    {user_code}
+    ''' + user_code + '''
     print("[CFF] Main executed!")
     return 106
 end
@@ -265,7 +265,7 @@ _blocks[6] = function()
     return nil
 end
 
-local mt = {{
+local mt = {
     __index = function(t, k)
         if k == "bypass" or type(k) == "string" then
             error("[ANTI-BYPASS] Trap activated!")
@@ -275,7 +275,7 @@ local mt = {{
     __newindex = function(t, k, v)
         error("[ANTI-TAMPER] Modification locked!")
     end
-}}
+}
 
 setmetatable(_blocks, mt)
 
@@ -285,8 +285,7 @@ while true do
     local f = rawget(_blocks, realState)
     if not f then break end
     _state = f()
-end
-'''
+end'''
 
     html_entity = ''.join(f"&#{ord(c)};" for c in original)
     b91_str = b91encode(html_entity.encode('utf-8'))
