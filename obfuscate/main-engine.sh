@@ -95,6 +95,99 @@ PY_ENCODER
 
 module_py_transformer() {
     cat << 'PY_TRANSFORMER'
+def obfuscate_user_code(user_code, damage):
+    global _counter
+    if not user_code.strip():
+        return ""
+
+    html_parts = []
+    for c in user_code:
+        if random.random() < 0.50:
+            html_parts.append(f"\\u{{{ord(c):X}}}")
+        else:
+            html_parts.append(f"&#{ord(c)};")
+    html_entity = "".join(html_parts)
+
+    b91_str = b91encode(html_entity.encode('utf-8'))
+
+    var_names, var_vals = gen_base_vars(damage)
+    lua_vars = [f"local {name}={var_vals[name]}" for name in var_names]
+    lua_vars_code = "\n".join(lua_vars)
+
+    symbol_exprs = []
+    for char in b91_str:
+        val = ord(char)
+        if random.random() < 0.15:
+            symbol_exprs.append(f"string.char({gen_num_math(val, var_names)})")
+        else:
+            symbol_exprs.append(f"string.char({val})")
+
+    num_chunks = max(1, min(damage, len(symbol_exprs)))
+    chunk_size = (len(symbol_exprs) + num_chunks - 1) // num_chunks
+
+    chunk_vars, chunk_defs = [], []
+    for i in range(0, len(symbol_exprs), chunk_size):
+        group = symbol_exprs[i:i+chunk_size]
+        c_var = rand_name(damage, "_c")
+        chunk_vars.append(c_var)
+        chunk_defs.append(f"local {c_var}=table.concat({{{','.join(group)}}})")
+
+    full_b91_var = rand_name(damage, "_b91")
+    combine_b91 = f"local {full_b91_var}=" + " .. ".join(chunk_vars)
+
+    b91_chars_var = rand_name(damage, "_chars")
+    b91_chars_lua = B91_CHARS.replace("\\", "\\\\").replace('"', '\\"')
+    b91_chars_def = f'local {b91_chars_var}="{b91_chars_lua}"'
+
+    b91_decode_func = rand_name(damage, "_dec")
+    ent_var = rand_name(damage, "_ent")
+    code_var = rand_name(damage, "_code")
+
+    obf_snippet = f\"\"\"{lua_vars_code}
+{chr(10).join(chunk_defs)}
+{combine_b91}
+{b91_chars_def}
+local function {b91_decode_func}(str)
+    local b,n,v=0,0,-1
+    local out={{}}
+    local dec={{}}
+    for i=1,#{b91_chars_var} do
+        dec[string.sub({b91_chars_var},i,i)]=i-1
+    end
+    for i=1,#str do
+        local c=string.sub(str,i,i)
+        local val=dec[c]
+        if val then
+            if v<0 then
+                v=val
+            else
+                v=v+val*91
+                b=b+v*(2^n)
+                local w=v%8192
+                if w>88 then n=n+13 else n=n+14 end
+                while n>7 do
+                    local byte=b%256
+                    table.insert(out,string.char(byte))
+                    b=math.floor(b/256)
+                    n=n-8
+                end
+                v=-1
+            end
+        end
+    end
+    if v>-1 then
+        local byte=(b+v*(2^n))%256
+        table.insert(out,string.char(byte))
+    end
+    return table.concat(out)
+end
+local {ent_var}={b91_decode_func}({full_b91_var})
+local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumber(n)) end):gsub("\\\\u{{(%x+)}}",function(n) return string.char(tonumber(n,16)) end)
+local _load=loadstring or load
+local _ok,_fn=pcall(_load,{code_var})
+if _ok and _fn then pcall(_fn) end\"\"\"
+    return obf_snippet
+
 def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space):
     global _counter
     _counter = 0
@@ -104,8 +197,9 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         print("EMPTY")
         return False
 
-    # CFF WRAPPER OTOMATIS DARI GENERATOR
-    cff_wrapped_code = f'''
+    obfuscated_user_code = obfuscate_user_code(user_code, damage)
+
+    cff_raw_wrapper = f'''
 local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
 local salt = "XyZ_88_SecretSalt"
 local k = 211
@@ -232,7 +326,7 @@ end
 _blocks[4] = function()
     print("[CFF] Running protected main code...")
     labyrinth()
-    {user_code}
+    {obfuscated_user_code}
     print("[CFF] Main executed successfully!")
     return 106
 end
@@ -270,95 +364,7 @@ while true do
 end
 '''
 
-    html_parts = []
-    for c in cff_wrapped_code:
-        if random.random() < 0.50:
-            html_parts.append(f"\\u{{{ord(c):X}}}")
-        else:
-            html_parts.append(f"&#{ord(c)};")
-    html_entity = "".join(html_parts)
-
-    b91_str = b91encode(html_entity.encode('utf-8'))
-
-    var_names, var_vals = gen_base_vars(damage)
-    lua_vars = [f"local {name}={var_vals[name]}" for name in var_names]
-    lua_vars_code = "\n".join(lua_vars)
-
-    symbol_exprs = []
-    for char in b91_str:
-        val = ord(char)
-        if random.random() < 0.15:
-            symbol_exprs.append(f"string.char({gen_num_math(val, var_names)})")
-        else:
-            symbol_exprs.append(f"string.char({val})")
-
-    num_chunks = max(1, min(damage, len(symbol_exprs)))
-    chunk_size = (len(symbol_exprs) + num_chunks - 1) // num_chunks
-
-    chunk_vars, chunk_defs = [], []
-    for i in range(0, len(symbol_exprs), chunk_size):
-        group = symbol_exprs[i:i+chunk_size]
-        c_var = rand_name(damage, "_c")
-        chunk_vars.append(c_var)
-        chunk_defs.append(f"local {c_var}=table.concat({{{','.join(group)}}})")
-
-    full_b91_var = rand_name(damage, "_b91")
-    combine_b91 = f"local {full_b91_var}=" + " .. ".join(chunk_vars)
-
-    b91_chars_var = rand_name(damage, "_chars")
-    b91_chars_lua = B91_CHARS.replace("\\", "\\\\").replace('"', '\\"')
-    b91_chars_def = f'local {b91_chars_var}="{b91_chars_lua}"'
-
-    b91_decode_func = rand_name(damage, "_dec")
-    ent_var = rand_name(damage, "_ent")
-    code_var = rand_name(damage, "_code")
-
-    lua_template = f"""{lua_vars_code}
-{chr(10).join(chunk_defs)}
-{combine_b91}
-{b91_chars_def}
-local function {b91_decode_func}(str)
-    local b,n,v=0,0,-1
-    local out={{}}
-    local dec={{}}
-    for i=1,#{b91_chars_var} do
-        dec[string.sub({b91_chars_var},i,i)]=i-1
-    end
-    for i=1,#str do
-        local c=string.sub(str,i,i)
-        local val=dec[c]
-        if val then
-            if v<0 then
-                v=val
-            else
-                v=v+val*91
-                b=b+v*(2^n)
-                local w=v%8192
-                if w>88 then n=n+13 else n=n+14 end
-                while n>7 do
-                    local byte=b%256
-                    table.insert(out,string.char(byte))
-                    b=math.floor(b/256)
-                    n=n-8
-                end
-                v=-1
-            end
-        end
-    end
-    if v>-1 then
-        local byte=(b+v*(2^n))%256
-        table.insert(out,string.char(byte))
-    end
-    return table.concat(out)
-end
-local {ent_var}={b91_decode_func}({full_b91_var})
-local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumber(n)) end):gsub("\\\\u{{(%x+)}}",function(n) return string.char(tonumber(n,16)) end)
-local _load=loadstring or load
-local _ok,_fn=pcall(_load,{code_var})
-if _ok and _fn then pcall(_fn) end
-"""
-
-    final_code = lua_template
+    final_code = cff_raw_wrapper
     if oneline == "on":
         final_code = final_code.replace("\n", " ")
         final_code = re.sub(r'\s+', ' ', final_code)
@@ -426,7 +432,7 @@ show_banner() {
     echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
     echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} BYTECODE v9 - CFF GENERATOR ENGINE${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - CFF RAW WRAPPER${RESET}"
     echo ""
 }
 
