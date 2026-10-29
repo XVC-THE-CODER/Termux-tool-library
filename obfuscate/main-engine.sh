@@ -1,13 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# RENUX HUB v10 - SINGLE FILE tapi ENGINE PY DIPISAH
-# Semua generator py dipisah tapi tetap di 1 file .sh ini
 
 PROJECT_FILE="./code-to-obfuscate.lua"
 RESULT_FILE="./code-obfuscate.lua"
 BACKUP_FILE="$HOME/.obfuscate_original.lua"
 SETTINGS_FILE="$HOME/.obfuscate_settings"
-ENGINE_DIR="$HOME/.obfuscator_engine"
-ENGINE_FILE="$ENGINE_DIR/engine.py"
+ENGINE_FILE="$HOME/.obfuscate_engine.py"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,32 +13,81 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 RESET='\033[0m'
 
-init_settings() {
+module_settings() {
     if [ ! -f "$SETTINGS_FILE" ]; then
         mkdir -p "$(dirname "$SETTINGS_FILE")"
-        cat > "$SETTINGS_FILE" << SETEOF
-oneline=off
-damage=5
-anti_bug=on
-short_byte=on
-use_space=off
-use_cff=on
-use_key=on
-salt=XyZ_88_SecretSalt
-SETEOF
+        echo "oneline=off" > "$SETTINGS_FILE"
+        echo "damage=3" >> "$SETTINGS_FILE"
+        echo "anti_bug=on" >> "$SETTINGS_FILE"
+        echo "short_byte=on" >> "$SETTINGS_FILE"
+        echo "use_space=off" >> "$SETTINGS_FILE"
     fi
+    if ! grep -q "short_byte" "$SETTINGS_FILE"; then echo "short_byte=on" >> "$SETTINGS_FILE"; fi
+    if ! grep -q "use_space" "$SETTINGS_FILE"; then echo "use_space=off" >> "$SETTINGS_FILE"; fi
     source "$SETTINGS_FILE"
 }
 
-init_engine() {
-    mkdir -p "$ENGINE_DIR"
-    mkdir -p "$HOME/.cache"
-
-    # === 1. encoder.py ===
-    cat > "$ENGINE_DIR/encoder.py" << 'PYEOF'
+module_py_imports() {
+    cat << 'PY_IMPORTS'
+import sys, os, random, subprocess, tempfile, re
 
 B91_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~\""
+_counter = 0
+PY_IMPORTS
+}
 
+module_py_naming() {
+    cat << 'PY_NAMING'
+def rand_name(damage=3, prefix=""):
+    global _counter
+    _counter += 1
+    return f"_V{_counter}{prefix}"
+
+def gen_base_vars(damage):
+    count = max(2, damage + 2)
+    names, vals = [], {}
+    for _ in range(count):
+        n = rand_name(damage)
+        while n in names:
+            n = rand_name(damage)
+        names.append(n)
+        vals[n] = random.randint(111, 9999)
+    return names, vals
+PY_NAMING
+}
+
+module_py_math() {
+    cat << 'PY_MATH'
+def gen_num_math(n, var_names, damage=3, depth=0):
+    v = random.choice(var_names)
+    max_depth = 1 if damage <= 2 else (2 if damage <= 5 else (3 if damage <= 10 else 4))
+    if depth >= max_depth:
+        if n == 0: return f"({v}-{v})"
+        if n == 1: return f"({v}-{v}+1)"
+        return f"({v}-{v}+{n})"
+
+    methods = ['mul_div', 'mul_add']
+    m = random.choice(methods)
+
+    if m == 'mul_div':
+        k = random.randint(2, 3 + damage)
+        nk = n * k
+        e_nk = gen_num_math(nk, var_names, damage, depth + 1)
+        e_k = gen_num_math(k, var_names, damage, depth + 1)
+        return f"math.floor(({e_nk})/({e_k}))"
+    else:
+        k = random.randint(2, 3 + damage)
+        q = n // k
+        r = n % k
+        e_q = gen_num_math(q, var_names, damage, depth + 1)
+        e_k = gen_num_math(k, var_names, damage, depth + 1)
+        e_r = gen_num_math(r, var_names, damage, depth + 1)
+        return f"((({e_q})*({e_k}))+({e_r}))"
+PY_MATH
+}
+
+module_py_encoder() {
+    cat << 'PY_ENCODER'
 def b91encode(data: bytes):
     b = 0
     n = 0
@@ -64,236 +110,187 @@ def b91encode(data: bytes):
         if n > 7 or b > 90:
             out += B91_CHARS[b // 91]
     return out
+PY_ENCODER
+}
 
-def html_entity_encode(s: str):
-    return ''.join(f"&#{ord(c)};" for c in s)
-
-PYEOF
-
-    # === 2. math_obf.py ===
-    cat > "$ENGINE_DIR/math_obf.py" << 'PYEOF'
-
-import random
-_counter = 0
-
-def reset():
+module_py_transformer() {
+    cat << 'PY_TRANSFORMER'
+def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space):
     global _counter
     _counter = 0
+    with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
+        user_code = f.read()
+    if not original.strip() if 'original' in locals() else not user_code.strip():
+        pass
 
-def rand_name(prefix="_V"):
-    global _counter
-    _counter += 1
-    # acak suffix biar infinite _V1 _v dll
-    if random.random() < 0.5:
-        return f"{prefix}{_counter}"
-    else:
-        return f"{prefix.lower()}{_counter}"
+    original = f'''
+local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
+local salt = "XyZ_88_SecretSalt"
+local k = 211
 
-def gen_base_vars(damage):
-    count = max(3, damage + 2)
-    names, vals = [], {}
-    for _ in range(count):
-        n = rand_name()
-        while n in names:
-            n = rand_name()
-        names.append(n)
-        vals[n] = random.randint(111, 9999)
-    return names, vals
-
-def gen_num_math(n, var_names, damage=3, depth=0):
-    import random
-    v = random.choice(var_names)
-    max_depth = 1 if damage <= 2 else (2 if damage <= 5 else (3 if damage <= 10 else 4))
-    if depth >= max_depth:
-        if n == 0: return f"({v}-{v})"
-        if n == 1: return f"({v}-{v}+1)"
-        return f"({v}-{v}+{n})"
-    methods = ['mul_div', 'mul_add']
-    m = random.choice(methods)
-    if m == 'mul_div':
-        k = random.randint(2, 3 + damage)
-        nk = n * k
-        e_nk = gen_num_math(nk, var_names, damage, depth + 1)
-        e_k = gen_num_math(k, var_names, damage, depth + 1)
-        return f"math.floor(({e_nk})/({e_k}))"
-    else:
-        k = random.randint(2, 3 + damage)
-        q = n // k
-        r = n % k
-        e_q = gen_num_math(q, var_names, damage, depth + 1)
-        e_k = gen_num_math(k, var_names, damage, depth + 1)
-        e_r = gen_num_math(r, var_names, damage, depth + 1)
-        return f"((({e_q})*({e_k}))+({e_r}))"
-
-def unicode_math_obf(n, var_names, damage):
-    # string.byte("\u{61}") - 97 style
-    hex_val = format(n + 97, 'x')
-    base = f'string.byte("\\u{{{hex_val}}}")-97'
-    if random.random() < 0.4:
-        # tambahin math obf
-        obf = gen_num_math(n, var_names, damage)
-        return f"({base}+{obf}-{gen_num_math(n, var_names, damage)})"
-    return base
-
-PYEOF
-
-    # === 3. key_system.py ===
-    cat > "$ENGINE_DIR/key_system.py" << 'PYEOF'
-
-import random
-
-def generate_key_system_lua(rand_name_func, salt="XyZ_88_SecretSalt", charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"):
-    v_charset = rand_name_func("_charset")
-    v_salt = rand_name_func("_salt")
-    v_k = rand_name_func("_k")
-    v_hash = rand_name_func("_hashSalt")
-    v_gen = rand_name_func("_genKey")
-    v_verify = rand_name_func("_verify")
-    v_seed = rand_name_func("_seed")
-
-    lua = f"""
-local {v_charset} = "{charset}"
-local {v_salt} = "{salt}"
-local {v_k} = 211
-local function {v_hash}(s)
-    local h=0
+local function hashSalt(s)
+    local h = 0
     for i=1,#s do
-        h=(h*31+string.byte(s,i))%1000000
+        h = (h * 31 + string.byte(s, i)) % 1000000
     end
     return h
 end
-local function {v_gen}(minute)
-    local {v_seed}=minute+{v_hash}({v_salt})
-    math.randomseed({v_seed})
-    local key=""
+
+local function genKey(minute)
+    local seed = minute + hashSalt(salt)
+    math.randomseed(seed)
+    local key = ""
     for i=1,12 do
-        local idx=math.random(1,#{v_charset})
-        key=key..string.sub({v_charset},idx,idx)
+        local idx = math.random(1, #charset)
+        key = key .. string.sub(charset, idx, idx)
     end
     return key
 end
-local function {v_verify}(input)
-    local currentMinute=math.floor(os.time()/60)
-    local keyNow={v_gen}(currentMinute)
-    local keyPrev={v_gen}(currentMinute-1)
-    if input==keyNow or input==keyPrev then
+
+local function verifyKey(input)
+    local currentMinute = math.floor(os.time() / 60)
+    local keyNow = genKey(currentMinute)
+    local keyPrev = genKey(currentMinute - 1)
+    if input == keyNow or input == keyPrev then
         return true
     end
     return false
 end
-"""
-    return lua, v_verify, v_gen, v_hash
 
-def get_key_for_current_minute(salt="XyZ_88_SecretSalt", charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"):
-    import math, random
-    def hashSalt(s):
-        h=0
-        for c in s:
-            h=(h*31+ord(c))%1000000
-        return h
-    def genKey(minute):
-        seed=minute+hashSalt(salt)
-        random.seed(seed)
-        key=""
-        for _ in range(12):
-            idx=random.randint(0,len(charset)-1)
-            key+=charset[idx]
-        return key
-    import time
-    cur = int(time.time()//60)
-    return genKey(cur), genKey(cur-1)
-
-PYEOF
-
-    # === 4. trap.py ===
-    cat > "$ENGINE_DIR/trap.py" << 'PYEOF'
-
-import random
-
-def generate_trap_lua(rand_name_func, var_names, damage):
-    v_lab = rand_name_func("_labyrinth")
-    v_x = rand_name_func("_x")
-    v_proxy = rand_name_func("_trapMT")
-    
-    # labyrinth 500k iter - bisa diatur damage biar makin berat
-    iter_count = 500000 if damage < 8 else 1000000
-    lua = f"""
-local function {v_lab}()
-    local {v_x}=0
-    for i=1,{iter_count} do
-        {v_x}=({v_x}+i*31)%1000000
+local function getClues(key)
+    local front = string.sub(key, 1, 4)
+    local middle = string.sub(key, 5, 8)
+    local back = string.sub(key, 9, 12)
+    local countUpper, countLower, countDigit, countSymbol = 0,0,0,0
+    local posUpper, posLower = {},{}
+    for i=1,#key do
+        local c = string.sub(key, i, i)
+        if c:match("%%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
+        elseif c:match("%%l") then countLower = countLower + 1 table.insert(posLower, i)
+        elseif c:match("%%d") then countDigit = countDigit + 1
+        else countSymbol = countSymbol + 1 end
     end
-    return {v_x}
+    return {{
+        frontType = "mixed",
+        middleType = "mixed", 
+        backType = "mixed",
+        countUpper = countUpper,
+        countLower = countLower,
+        countDigit = countDigit,
+        countSymbol = countSymbol,
+        posUpper = posUpper,
+        posLower = posLower
+    }}
 end
-"""
-    return lua, v_lab
 
-def generate_anti_bypass_mt(rand_name_func):
-    v_mt = rand_name_func("_mt")
-    lua = f"""
-local {v_mt}={{
-    __index=function(t,k)
-        if k=="bypass" or k=="hook" or k=="cheat" then
-            error("Anti-bypass trap! Renux Hub Protected")
+local tries = 0
+local maxTries = 3
+
+local function labyrinth()
+    local x = 0
+    for i=1,500000 do
+        x = (x + i * 31) % 1000000
+    end
+    return x
+end
+
+local _state = 101
+local _blocks = {{}}
+
+local function decodeState(s)
+    return (s - 100)
+end
+
+_blocks[1] = function()
+    local execName = "Unknown"
+    if identifyexecutor then
+        execName = identifyexecutor()
+    elseif getexecutorname then
+        execName = getexecutorname()
+    end
+    print("[CFF] Executor: " .. tostring(execName))
+    return 102
+end
+
+_blocks[2] = function()
+    local a = string.byte("\\u{{61}}") - 97
+    local b = string.byte("\\u{{62}}") - 97
+    local c = string.byte("\\u{{63}}") - 97
+    local calc = math.floor(math.sqrt((a + b + c + k) * 100))
+    print("[CFF] Math check: " .. calc)
+    return 103
+end
+
+_blocks[3] = function()
+    print("[CFF] Enter 12-digit timed key (valid 1 min)")
+    print("[CFF] Set _G.RenuxKey = 'key' dulu")
+    local input = _G.RenuxKey or ""
+    if input == "" then
+        print("[CFF] No key! clue current key:")
+        local cm = math.floor(os.time()/60)
+        local ck = genKey(cm)
+        local clues = getClues(ck)
+        print("Count Upper: " .. clues.countUpper .. " Lower: " .. clues.countLower .. " Digit: " .. clues.countDigit .. " Symbol: " .. clues.countSymbol)
+        print("Pos Upper: " .. table.concat(clues.posUpper, ",") .. " Pos Lower: " .. table.concat(clues.posLower, ","))
+        return 106
+    end
+    if verifyKey(input) then
+        print("[CFF] Key valid!")
+        return 104
+    else
+        tries = tries + 1
+        print("[CFF] Invalid! Try " .. tries .. "/" .. maxTries)
+        if tries >= maxTries then
+            return 105
         end
-        return rawget(t,k)
+        return 103
+    end
+end
+
+_blocks[4] = function()
+    print("[CFF] Running protected main code...")
+    labyrinth()
+    {user_code}
+    print("[CFF] Main executed!")
+    return 106
+end
+
+_blocks[5] = function()
+    error("[CFF TRAP] Brute-force detected! Script locked.")
+    return 106
+end
+
+_blocks[6] = function()
+    print("[CFF] Exit")
+    return nil
+end
+
+local mt = {{
+    __index = function(t, k)
+        if k == "bypass" or type(k) == "string" then
+            error("[ANTI-BYPASS] Trap activated!")
+        end
+        return rawget(t, k)
+    end,
+    __newindex = function(t, k, v)
+        error("[ANTI-TAMPER] Modification locked!")
     end
 }}
-"""
-    return lua, v_mt
 
-PYEOF
+setmetatable(_blocks, mt)
 
-    # === 5. cff.py ===
-    cat > "$ENGINE_DIR/cff.py" << 'PYEOF'
-
-def build_cff_template(blocks_code, state_var, blocks_var, mt_var):
-    # blocks_code = dict int -> lua string code (return next_state)
-    # returns final CFF loop
-    cff = f"""
-local {state_var}=1
-local {blocks_var}={{}}
-"""
-    for idx, code in blocks_code.items():
-        cff += f"{blocks_var}[{idx}] = function()\n{code}\nend\n"
-    
-    cff += f"""
-setmetatable({blocks_var}, {mt_var})
 while true do
-    if {state_var}==nil then break end
-    local f={blocks_var}[{state_var}]
+    if _state == nil then break end
+    local realState = decodeState(_state)
+    local f = rawget(_blocks, realState)
     if not f then break end
-    {state_var}=f()
+    _state = f()
 end
-"""
-    return cff
+'''
 
-PYEOF
-
-    # === 6. builder.py ===
-    cat > "$ENGINE_DIR/builder.py" << 'PYEOF'
-
-import sys, os, random, subprocess, tempfile, re
-from .encoder import b91encode, html_entity_encode, B91_CHARS
-from .math_obf import rand_name, gen_base_vars, gen_num_math, unicode_math_obf, reset
-from .key_system import generate_key_system_lua, get_key_for_current_minute
-from .trap import generate_trap_lua, generate_anti_bypass_mt
-from .cff import build_cff_template
-
-def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space, 
-                   use_cff="on", use_key="on", use_labyrinth="on", salt="XyZ_88_SecretSalt"):
-    reset()
-    with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
-        original = f.read()
-    if not original.strip():
-        print("EMPTY")
-        return False
-
-    # 1. Encode payload
-    html_entity = html_entity_encode(original)
+    html_entity = ''.join(f"&#{ord(c)};" for c in original)
     b91_str = b91encode(html_entity.encode('utf-8'))
 
-    # 2. Base vars
     var_names, var_vals = gen_base_vars(damage)
     lua_vars = []
     for name in var_names:
@@ -302,57 +299,49 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
     junk_lines = []
     if damage > 1:
         for _ in range(damage * 2):
-            j_name = rand_name("_j")
+            j_name = rand_name(damage, "_j")
             b_var = random.choice(var_names)
             k_val = random.randint(2, 20)
             junk_lines.append(f"local {j_name}=math.floor(({b_var}*{gen_num_math(k_val, var_names, damage)})/{gen_num_math(k_val, var_names, damage)})")
 
     lua_vars_code = "\n".join(lua_vars + junk_lines)
 
-    # 3. B91 chunks dengan obf char
     symbol_exprs = []
     for char in b91_str:
         val = ord(char)
-        if char.isalpha() and random.random() < 0.15:
+        if char.isalpha() and random.random() < 0.10:
             symbol_exprs.append(f"string.char(0x{val:02X})")
-        elif random.random() < 0.35:
+        elif random.random() < 0.25:
             e_dec = gen_num_math(val, var_names, damage)
             symbol_exprs.append(f"string.char({e_dec})")
         else:
-            # unicode style
-            if random.random() < 0.2:
-                symbol_exprs.append(f"string.char({unicode_math_obf(val, var_names, damage)})")
-            else:
-                symbol_exprs.append(f"string.char({val})")
+            symbol_exprs.append(f"string.char({val})")
 
     num_chunks = max(1, min(damage, len(symbol_exprs)))
     chunk_size = (len(symbol_exprs) + num_chunks - 1) // num_chunks
+
     chunk_vars = []
     chunk_defs = []
     for i in range(0, len(symbol_exprs), chunk_size):
         group = symbol_exprs[i:i+chunk_size]
-        c_var = rand_name("_c")
+        c_var = rand_name(damage, "_c")
         chunk_vars.append(c_var)
         chunk_defs.append(f"local {c_var}=table.concat({{{','.join(group)}}})")
 
-    full_b91_var = rand_name("_b91")
+    full_b91_var = rand_name(damage, "_b91")
     combine_b91 = f"local {full_b91_var}=" + " .. ".join(chunk_vars)
 
-    b91_chars_var = rand_name("_chars")
+    b91_chars_var = rand_name(damage, "_chars")
     b91_chars_lua = B91_CHARS.replace("\\", "\\\\").replace('"', '\\"')
     b91_chars_def = f'local {b91_chars_var}="{b91_chars_lua}"'
 
-    b91_decode_func = rand_name("_dec")
-    ent_var = rand_name("_ent")
-    code_var = rand_name("_code")
+    b91_decode_func = rand_name(damage, "_dec")
+    ent_var = rand_name(damage, "_ent")
+    code_var = rand_name(damage, "_code")
 
-    # 4. Key system + trap
-    key_lua, v_verify, v_gen, v_hash = generate_key_system_lua(rand_name, salt)
-    trap_lua, v_lab = generate_trap_lua(rand_name, var_names, damage)
-    mt_lua, v_mt = generate_anti_bypass_mt(rand_name)
-
-    # 5. B91 decode func
-    b91_decode_lua = f"""
+    lua_template = f"""{lua_vars_code}
+{chr(10).join(chunk_defs)}
+{combine_b91}
 {b91_chars_def}
 local function {b91_decode_func}(str)
     local b,n,v=0,0,-1
@@ -388,115 +377,6 @@ local function {b91_decode_func}(str)
     end
     return table.concat(out)
 end
-"""
-
-    # 6. CFF Blocks
-    v_state = rand_name("_state")
-    v_blocks = rand_name("_blocks")
-    v_tries = rand_name("_tries")
-    v_max = rand_name("_maxTries")
-    v_input = rand_name("_input")
-
-    # Pre-calc current valid keys for builder info
-    key_now, key_prev = get_key_for_current_minute(salt)
-
-    block1 = f"""
-    -- check executor + labyrinth init
-    local execName="Unknown"
-    if identifyexecutor then execName=identifyexecutor()
-    elseif getexecutorname then execName=getexecutorname() end
-    print("Executor: "..tostring(execName).." | Renux Hub Protected")
-    {v_lab}()
-    return 2
-"""
-
-    # unicode math obf check
-    block2 = f"""
-    local a=string.byte("\\u{{61}}")-97
-    local b=string.byte("\\u{{62}}")-97
-    local c=string.byte("\\u{{63}}")-97
-    local calc=math.floor(math.sqrt((a+b+c+211)*100))
-    if calc < 0 then return 5 end
-    return 3
-"""
-
-    if use_key == "on":
-        block3 = f"""
-    print("Enter 12-digit timed key (valid 1 min):")
-    local {v_input}=_G.RenuxKey or ""
-    if {v_input}=="" then
-        print("No key provided, set _G.RenuxKey - Current valid: {key_now}")
-        return 6
-    end
-    if {v_verify}({v_input}) then
-        print("Key valid!")
-        return 4
-    else
-        {v_tries}={v_tries}+1
-        print("Invalid key! Try: "..{v_tries}.."/"..{v_max})
-        if {v_tries}>={v_max} then
-            return 5
-        end
-        return 3
-    end
-"""
-    else:
-        block3 = "return 4\n"
-
-    block4 = f"""
-    -- success, decode and run payload
-    {b91_decode_lua}
-    {chr(10).join(chunk_defs)}
-    {combine_b91}
-    local {ent_var}={b91_decode_func}({full_b91_var})
-    local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumber(n)) end)
-    local _load=loadstring or load
-    local _ok,_fn=pcall(_load,{code_var})
-    if _ok and _fn then pcall(_fn) end
-    return 6
-"""
-
-    block5 = f"""
-    error("Brute-force detected, Renux trap activated! Labyrinth: "..{v_lab}())
-    return 6
-"""
-
-    block6 = f"""
-    print("Exit - Renux Hub")
-    return nil
-"""
-
-    # Build CFF if enabled
-    if use_cff == "on":
-        blocks = {
-            1: block1,
-            2: block2,
-            3: block3,
-            4: block4,
-            5: block5,
-            6: block6
-        }
-        final_cff = build_cff_template(blocks, v_state, v_blocks, v_mt)
-        final_code = f"""
-{lua_vars_code}
-{key_lua}
-{trap_lua}
-{mt_lua}
-local {v_tries}=0
-local {v_max}=3
-{final_cff}
-"""
-    else:
-        # tanpa CFF, langsung jalan
-        final_code = f"""
-{lua_vars_code}
-{key_lua}
-{trap_lua}
-local {v_tries}=0
-local {v_max}=3
-{chr(10).join(chunk_defs)}
-{combine_b91}
-{b91_decode_lua}
 local {ent_var}={b91_decode_func}({full_b91_var})
 local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumber(n)) end)
 local _load=loadstring or load
@@ -504,6 +384,7 @@ local _ok,_fn=pcall(_load,{code_var})
 if _ok and _fn then pcall(_fn) end
 """
 
+    final_code = lua_template
     if oneline == "on":
         final_code = final_code.replace("\n", " ")
         final_code = re.sub(r'\s+', ' ', final_code)
@@ -514,7 +395,7 @@ if _ok and _fn then pcall(_fn) end
         final_code = final_code.strip()
 
     if anti_bug == "on":
-        for _ in range(3):
+        for _ in range(5):
             with tempfile.NamedTemporaryFile(mode='w', suffix='.lua', delete=False) as tf:
                 tf.write(final_code)
             tf_path = tf.name
@@ -524,7 +405,7 @@ if _ok and _fn then pcall(_fn) end
                 if result.returncode == 0:
                     break
                 else:
-                    if _ == 2:
+                    if _ == 4:
                         print("SYNTAX_FAIL:"+result.stderr[:500])
                         return False
             except FileNotFoundError:
@@ -543,155 +424,213 @@ if _ok and _fn then pcall(_fn) end
 
     with open(output_path, 'w', encoding='utf-8') as out:
         out.write(final_code)
-    
-    print(f"KEY_NOW:{key_now}")
-    print(f"KEY_PREV:{key_prev}")
     return True
 
-PYEOF
-
-    # === 7. __init__.py ===
-    cat > "$ENGINE_DIR/__init__.py" << 'PYEOF'
-from .builder import obfuscate_file
-PYEOF
-
-    # === 8. engine.py wrapper ===
-    cat > "$ENGINE_FILE" << 'PYEOF'
-import sys
-sys.path.insert(0, "/home/code-interpreter/.obfuscator_engine")
-from builder import obfuscate_file
 if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        sys.exit(1)
     inp, outp = sys.argv[1], sys.argv[2]
     oneline = sys.argv[3] if len(sys.argv)>3 else "off"
-    damage = int(sys.argv[4]) if len(sys.argv)>4 else 5
+    damage = int(sys.argv[4]) if len(sys.argv)>4 else 3
     anti_bug = sys.argv[5] if len(sys.argv)>5 else "on"
     short_byte = sys.argv[6] if len(sys.argv)>6 else "on"
     use_space = sys.argv[7] if len(sys.argv)>7 else "off"
-    use_cff = sys.argv[8] if len(sys.argv)>8 else "on"
-    use_key = sys.argv[9] if len(sys.argv)>9 else "on"
-    salt = sys.argv[10] if len(sys.argv)>10 else "XyZ_88_SecretSalt"
-    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug, short_byte, use_space, use_cff, use_key, "on", salt)
+    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug, short_byte, use_space)
     print("OK" if ok else "FAIL")
     sys.exit(0 if ok else 2)
-PYEOF
-    chmod +x "$ENGINE_DIR"/*.py "$ENGINE_FILE"
+PY_TRANSFORMER
+}
+
+init_engine() {
+    mkdir -p "$HOME/.cache"
+    module_py_imports > "$ENGINE_FILE"
+    module_py_naming >> "$ENGINE_FILE"
+    module_py_math >> "$ENGINE_FILE"
+    module_py_encoder >> "$ENGINE_FILE"
+    module_py_transformer >> "$ENGINE_FILE"
+    chmod +x "$ENGINE_FILE"
 }
 
 show_banner() {
     clear
     echo -e "${CYAN}"
-    echo "  ____  _____ _   _ _   ___  __  _   _ _   _ ____    "
-    echo " |  _ \| ____| \ | | | | \ \/ / | | | | | | | __ )   "
-    echo " | |_) |  _| |  \| | | | |\  /  | |_| | | | |  _ \   "
-    echo " |  _ <| |___| |\  | |_| |/  \  |  _  | |_| | |_) |  "
-    echo " |_| \_\_____|_| \_|\___//_/\_\ |_| |_|\___/|____/   "
+    echo "  ____  _   _ _____ _____ ____ ___  ____  _____ "
+    echo " |  _ \| | | |_   _| ____/ ___/ _ \|  _ \| ____|"
+    echo " | |_) | | | | | | |  _|| |  | | | | |_) |  _|  "
+    echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
+    echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} v10 SINGLE FILE - 6 PY GENERATOR TERPISAH${RESET}"
-    echo -e "${YELLOW} encoder | math_obf | key_system | trap | cff | builder${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - CFF + TIMED KEY + LABYRINTH${RESET}"
     echo ""
 }
 
 show_menu() {
     echo -e "${GREEN}----------------------------------------${RESET}"
+    echo -e " MENU"
     echo -e "   ${YELLOW}start${RESET}    - create and obfuscate"
-    echo -e "   ${YELLOW}setting${RESET}  - settings cff/key/salt"
+    echo -e "   ${YELLOW}setting${RESET}  - settings"
     echo -e "   ${YELLOW}exit${RESET}     - exit"
     echo -e "${GREEN}----------------------------------------${RESET}"
-    echo -ne "${CYAN}renux > ${RESET}"
+    echo ""
+    echo -ne "${CYAN}bytecode > ${RESET}"
 }
 
 do_copy() {
     local file="$1"
-    [ ! -f "$file" ] && echo -e "${RED}[fail] file not found${RESET}" && return 1
-    wc -c < "$file" | awk '{print "size : " $1 " bytes"}'
-    if command -v termux-clipboard-set >/dev/null 2>&1; then
-        termux-clipboard-set < "$file" && echo -e "${GREEN}[ok] copied${RESET}"
+    if [ ! -f "$file" ]; then echo -e "${RED}[fail] file not found${RESET}"; return 1; fi
+    local size=$(wc -c < "$file")
+    echo -e "${CYAN} file size: $size bytes${RESET}"
+    if ! command -v termux-clipboard-set >/dev/null 2>&1; then
+        pkg install termux-api -y >/dev/null 2>&1;
+    fi
+    echo -e "${YELLOW}[*] copy 10 tries...${RESET}"
+    local success=0
+    for i in {1..10}; do
+        if termux-clipboard-set < "$file" 2>/dev/null; then
+            echo -e "${GREEN}[ok] copy success try $i${RESET}"
+            success=1
+            break
+        fi
+        if cat "$file" | termux-clipboard-set 2>/dev/null; then
+            echo -e "${GREEN}[ok] copy success try $i method2${RESET}"
+            success=1
+            break
+        fi
+        sleep 0.5
+    done
+    if [ $success -eq 0 ]; then
+        echo -e "${RED}[fail] copy failed${RESET}"
+        if [ -d "/sdcard/Download" ]; then
+            cp "$file" "/sdcard/Download/$(basename "$file")" 2>/dev/null
+            echo -e "${GREEN}[ok] saved to /sdcard/Download/${RESET}"
+        fi
+        if command -v termux-share >/dev/null 2>&1; then
+            termux-share "$file" 2>/dev/null
+        fi
     else
-        cp "$file" "/sdcard/Download/" 2>/dev/null && echo -e "${GREEN}[ok] saved Download${RESET}"
+        termux-toast "Copied!" 2>/dev/null
     fi
 }
 
 do_obfuscate() {
     local tmp_out="$HOME/.obfuscate_temp.lua"
-    init_settings
-    init_engine
-    echo -e "${CYAN} oneline=$oneline damage=$damage cff=$use_cff key=$use_key salt=$salt${RESET}"
-    cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
-    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space" "$use_cff" "$use_key" "$salt"
-    [ $? -ne 0 ] || [ ! -f "$tmp_out" ] && echo -e "${RED}[fail] obfuscate failed${RESET}" && return 1
-    echo -e "${YELLOW}[*] test syntax...${RESET}"
-    if command -v luac >/dev/null 2>&1; then
-        luac -p "$tmp_out" && echo -e "${GREEN}[ok] syntax valid${RESET}" || echo -e "${RED}[warn] syntax check fail${RESET}"
+    if [ -d "/data/data/com.termux/files/usr/tmp" ]; then
+        tmp_out="/data/data/com.termux/files/usr/tmp/obf_temp.lua"
     fi
-    cat "$tmp_out" > "$RESULT_FILE"
-    echo -e "${GREEN}[ok] Renux CFF + Key + Trap done!${RESET}"
-    wc -c "$RESULT_FILE"
-    while true; do
-        echo -e "${CYAN}[1] copy [2] open [3] gen key [4] exit${RESET}"
-        echo -ne "${YELLOW}select > ${RESET}"
-        read -r choice
-        case "$choice" in
-            1) do_copy "$RESULT_FILE" ;;
-            2) nano "$RESULT_FILE" ;;
-            3) python3 -c "
-import sys
-sys.path.insert(0, '$HOME/.obfuscator_engine')
-from key_system import get_key_for_current_minute
-k1,k2=get_key_for_current_minute('$salt')
-print(f'KEY NOW : {k1}')
-print(f'KEY PREV: {k2}')
-" ;;
-            4|q) break ;;
-        esac
+    module_settings
+    echo -e "${CYAN} settings: oneline=$oneline damage=$damage anti_bug=$anti_bug short_byte=$short_byte use_space=$use_space${RESET}"
+    cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
+    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space"
+    local status=$?
+    if [ $status -ne 0 ] || [ ! -f "$tmp_out" ]; then
+        echo -e "${RED}[fail] obfuscate failed${RESET}"
+        return 1
+    fi
+    echo -e "${YELLOW}[*] test 5 times...${RESET}"
+    local test_ok=0
+    for t in {1..5}; do
+        if command -v luac >/dev/null 2>&1; then
+            if luac -p "$tmp_out" >/dev/null 2>&1; then
+                echo -e "${GREEN}  [ok] test $t${RESET}"
+                test_ok=1
+            else
+                echo -e "${RED}  [fail] test $t regen${RESET}"
+                python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space"
+            fi
+        else
+            echo -e "${GREEN}  [ok] test $t logic ok${RESET}"
+            test_ok=1
+            break
+        fi
+        sleep 0.2
     done
-    rm -f "$tmp_out"
+    if [ $test_ok -eq 1 ]; then
+        cat "$tmp_out" > "$PROJECT_FILE"
+        cat "$tmp_out" > "$RESULT_FILE"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -e "${GREEN}[ok] success bytecode cff + timed key!${RESET}"
+        wc -c "$RESULT_FILE" | awk '{print "size : " $1 " bytes"}'
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        while true; do
+            echo ""
+            echo -e "${CYAN}options: [1] copy [2] recreate [3] open [4] exit${RESET}"
+            echo -ne "${YELLOW}select > ${RESET}"
+            read -r choice
+            case "$choice" in
+                1|copy|c) do_copy "$RESULT_FILE" ;;
+                2|recreate|r)
+                    echo 'print("new")' > "$PROJECT_FILE"
+                    nano "$PROJECT_FILE"
+                    echo -ne "${YELLOW}obfuscate new? (y/n): ${RESET}"
+                    read -r yn
+                    if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
+                        do_obfuscate
+                    fi
+                    break
+                    ;;
+                3|open|o) nano "$RESULT_FILE" ;;
+                4|exit|e|q) break ;;
+                *) echo -e "${RED}invalid${RESET}" ;;
+            esac
+        done
+        rm -f "$tmp_out"
+    else
+        echo -e "${RED}[fail] validation${RESET}"
+    fi
 }
 
 handle_start() {
     rm -f "$PROJECT_FILE"
-    echo 'print("hello renux")' > "$PROJECT_FILE"
+    echo 'print("hello")' > "$PROJECT_FILE"
     nano "$PROJECT_FILE"
-    [ ! -s "$PROJECT_FILE" ] && echo -e "${RED}empty${RESET}" && return
-    head -n 20 "$PROJECT_FILE"
+    if [ ! -s "$PROJECT_FILE" ]; then echo -e "${RED}[fail] empty${RESET}"; return; fi
+    head -n 15 "$PROJECT_FILE"
     echo -ne "${YELLOW}obfuscate now? (y/n): ${RESET}"
     read -r yn
-    [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]] && do_obfuscate
+    if [[ "$yn" == "y" || "$yn" == "Y" || "$yn" == "" ]]; then
+        do_obfuscate
+    fi
 }
 
 handle_setting() {
     while true; do
-        init_settings
+        module_settings
         clear
         show_banner
-        echo -e "1. oneline $oneline"
-        echo -e "2. damage $damage"
-        echo -e "3. use_cff $use_cff"
-        echo -e "4. use_key $use_key"
-        echo -e "5. salt $salt"
+        echo -e "${WHITE}SETTINGS${RESET}"
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -e "1. oneline   : ${YELLOW}$oneline${RESET}"
+        echo -e "2. damage    : ${YELLOW}$damage${RESET}"
+        echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET}"
+        echo -e "4. short_byte: ${YELLOW}$short_byte${RESET}"
+        echo -e "5. use_space : ${YELLOW}$use_space${RESET}"
         echo -e "6. back"
-        echo -ne "select > "; read -r s
+        echo -e "${GREEN}----------------------------------------${RESET}"
+        echo -ne "${CYAN}select 1-6 > ${RESET}"
+        read -r s
         case "$s" in
-            1) echo -ne "oneline on/off > "; read -r v; sed -i "s/^oneline=.*/oneline=$v/" "$SETTINGS_FILE" ;;
-            2) echo -ne "damage 1-15 > "; read -r v; sed -i "s/^damage=.*/damage=$v/" "$SETTINGS_FILE" ;;
-            3) echo -ne "use_cff on/off > "; read -r v; sed -i "s/^use_cff=.*/use_cff=$v/" "$SETTINGS_FILE" ;;
-            4) echo -ne "use_key on/off > "; read -r v; sed -i "s/^use_key=.*/use_key=$v/" "$SETTINGS_FILE" ;;
-            5) echo -ne "salt > "; read -r v; sed -i "s/^salt=.*/salt=$v/" "$SETTINGS_FILE" ;;
-            6|q) break ;;
+            1) echo -ne "oneline on/off > "; read -r val; sed -i "s/^oneline=.*/oneline=$val/" "$SETTINGS_FILE" ;;
+            2) echo -ne "damage 1-15 > "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
+            3) echo -ne "anti_bug on/off > "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
+            4) echo -ne "short_byte on/off > "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
+            5) echo -ne "use_space on/off > "; read -r val; sed -i "s/^use_space=.*/use_space=$val/" "$SETTINGS_FILE" ;;
+            6|q|exit) break ;;
         esac
     done
 }
 
-init_settings
+module_settings
 init_engine
+
 while true; do
     show_banner
     show_menu
     read -r input
     cmd=$(echo "$input" | tr '[:upper:]' '[:lower:]' | xargs)
     case "$cmd" in
-        start|1) handle_start; echo "press enter..."; read -r ;;
-        setting|2) handle_setting ;;
-        exit|3|q) echo "bye!"; exit 0 ;;
-        *) echo "unknown: $input"; sleep 1 ;;
+        start|1|s) handle_start; echo -e "${YELLOW}press enter...${RESET}"; read -r ;;
+        setting|settings|2|set) handle_setting ;;
+        exit|3|q|quit) echo -e "${GREEN}bye!${RESET}"; exit 0 ;;
+        *) echo -e "${RED}unknown: $input${RESET}"; sleep 1 ;;
     esac
 done
