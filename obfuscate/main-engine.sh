@@ -104,8 +104,174 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
         print("EMPTY")
         return False
 
+    # CFF WRAPPER OTOMATIS DARI GENERATOR
+    cff_wrapped_code = f'''
+local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
+local salt = "XyZ_88_SecretSalt"
+local k = 211
+
+local function hashSalt(s)
+    local h = 0
+    for i=1,#s do
+        h = (h * 31 + string.byte(s, i)) % 1000000
+    end
+    return h
+end
+
+local function genKey(minute)
+    local seed = minute + hashSalt(salt)
+    math.randomseed(seed)
+    local key = ""
+    for i=1,12 do
+        local idx = math.random(1, #charset)
+        key = key .. string.sub(charset, idx, idx)
+    end
+    return key
+end
+
+local function verifyKey(input)
+    local currentMinute = math.floor(os.time() / 60)
+    local keyNow = genKey(currentMinute)
+    local keyPrev = genKey(currentMinute - 1)
+    if input == keyNow or input == keyPrev then
+        return true
+    end
+    return false
+end
+
+local function getClues(key)
+    local front = string.sub(key, 1, 4)
+    local middle = string.sub(key, 5, 8)
+    local back = string.sub(key, 9, 12)
+    local countUpper, countLower, countDigit, countSymbol = 0,0,0,0
+    local posUpper, posLower = {{}},{{}}
+    for i=1,#key do
+        local c = string.sub(key, i, i)
+        if c:match("%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
+        elseif c:match("%l") then countLower = countLower + 1 table.insert(posLower, i)
+        elseif c:match("%d") then countDigit = countDigit + 1
+        else countSymbol = countSymbol + 1 end
+    end
+    return {{
+        frontType = "mixed",
+        middleType = "mixed", 
+        backType = "mixed",
+        countUpper = countUpper,
+        countLower = countLower,
+        countDigit = countDigit,
+        countSymbol = countSymbol,
+        posUpper = posUpper,
+        posLower = posLower
+    }}
+end
+
+local tries = 0
+local maxTries = 3
+
+local function labyrinth()
+    local x = 0
+    for i=1,500000 do
+        x = (x + i * 31) % 1000000
+    end
+    return x
+end
+
+local _state = 101
+local _blocks = {{}}
+
+local function decodeState(s)
+    return (s - 100)
+end
+
+_blocks[1] = function()
+    local execName = "Unknown"
+    if identifyexecutor then
+        execName = identifyexecutor()
+    elseif getexecutorname then
+        execName = getexecutorname()
+    end
+    print("[CFF] Executor: " .. tostring(execName))
+    return 102
+end
+
+_blocks[2] = function()
+    local a = string.byte("\\u{{61}}") - 97
+    local b = string.byte("\\u{{62}}") - 97
+    local c = string.byte("\\u{{63}}") - 97
+    local calc = math.floor(math.sqrt((a + b + c + k) * 100))
+    print("[CFF] Math check: " .. calc)
+    return 103
+end
+
+_blocks[3] = function()
+    print("[CFF] Enter 12-digit timed key (valid 1 min)")
+    print("[CFF] Set _G.RenuxKey = 'key' dulu")
+    local input = _G.RenuxKey or ""
+    if input == "" then
+        print("[CFF] No key! clue current key:")
+        local cm = math.floor(os.time()/60)
+        local ck = genKey(cm)
+        local clues = getClues(ck)
+        print("Count Upper: " .. clues.countUpper .. " Lower: " .. clues.countLower .. " Digit: " .. clues.countDigit .. " Symbol: " .. clues.countSymbol)
+        print("Pos Upper: " .. table.concat(clues.posUpper, ",") .. " Pos Lower: " .. table.concat(clues.posLower, ","))
+        return 106
+    end
+    if verifyKey(input) then
+        print("[CFF] Key valid!")
+        return 104
+    else
+        tries = tries + 1
+        print("[CFF] Invalid! Try " .. tries .. "/" .. maxTries)
+        if tries >= maxTries then
+            return 105
+        end
+        return 103
+    end
+end
+
+_blocks[4] = function()
+    print("[CFF] Running protected main code...")
+    labyrinth()
+    {user_code}
+    print("[CFF] Main executed successfully!")
+    return 106
+end
+
+_blocks[5] = function()
+    error("[CFF TRAP] Brute-force detected! Script locked.")
+    return 106
+end
+
+_blocks[6] = function()
+    print("[CFF] Exit")
+    return nil
+end
+
+local mt = {{
+    __index = function(t, k)
+        if k == "bypass" or type(k) == "string" then
+            error("[ANTI-BYPASS] Trap activated!")
+        end
+        return rawget(t, k)
+    end,
+    __newindex = function(t, k, v)
+        error("[ANTI-TAMPER] Modification locked!")
+    end
+}}
+
+setmetatable(_blocks, mt)
+
+while true do
+    if _state == nil then break end
+    local realState = decodeState(_state)
+    local f = rawget(_blocks, realState)
+    if not f then break end
+    _state = f()
+end
+'''
+
     html_parts = []
-    for c in user_code:
+    for c in cff_wrapped_code:
         if random.random() < 0.50:
             html_parts.append(f"\\u{{{ord(c):X}}}")
         else:
@@ -260,7 +426,7 @@ show_banner() {
     echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
     echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} BYTECODE v9 - CFF RAW + RUNTIME TEST${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - CFF GENERATOR ENGINE${RESET}"
     echo ""
 }
 
@@ -329,170 +495,7 @@ do_obfuscate() {
 
 handle_start() {
     rm -f "$PROJECT_FILE"
-    cat << 'DEFAULT_CFF' > "$PROJECT_FILE"
-local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
-local salt = "XyZ_88_SecretSalt"
-local k = 211
-
-local function hashSalt(s)
-    local h = 0
-    for i=1,#s do
-        h = (h * 31 + string.byte(s, i)) % 1000000
-    end
-    return h
-end
-
-local function genKey(minute)
-    local seed = minute + hashSalt(salt)
-    math.randomseed(seed)
-    local key = ""
-    for i=1,12 do
-        local idx = math.random(1, #charset)
-        key = key .. string.sub(charset, idx, idx)
-    end
-    return key
-end
-
-local function verifyKey(input)
-    local currentMinute = math.floor(os.time() / 60)
-    local keyNow = genKey(currentMinute)
-    local keyPrev = genKey(currentMinute - 1)
-    if input == keyNow or input == keyPrev then
-        return true
-    end
-    return false
-end
-
-local function getClues(key)
-    local front = string.sub(key, 1, 4)
-    local middle = string.sub(key, 5, 8)
-    local back = string.sub(key, 9, 12)
-    local countUpper, countLower, countDigit, countSymbol = 0,0,0,0
-    local posUpper, posLower = {},{}
-    for i=1,#key do
-        local c = string.sub(key, i, i)
-        if c:match("%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
-        elseif c:match("%l") then countLower = countLower + 1 table.insert(posLower, i)
-        elseif c:match("%d") then countDigit = countDigit + 1
-        else countSymbol = countSymbol + 1 end
-    end
-    return {
-        frontType = "mixed",
-        middleType = "mixed", 
-        backType = "mixed",
-        countUpper = countUpper,
-        countLower = countLower,
-        countDigit = countDigit,
-        countSymbol = countSymbol,
-        posUpper = posUpper,
-        posLower = posLower
-    }
-end
-
-local tries = 0
-local maxTries = 3
-
-local function labyrinth()
-    local x = 0
-    for i=1,500000 do
-        x = (x + i * 31) % 1000000
-    end
-    return x
-end
-
-local _state = 101
-local _blocks = {}
-
-local function decodeState(s)
-    return (s - 100)
-end
-
-_blocks[1] = function()
-    local execName = "Unknown"
-    if identifyexecutor then
-        execName = identifyexecutor()
-    elseif getexecutorname then
-        execName = getexecutorname()
-    end
-    print("[CFF] Executor: " .. tostring(execName))
-    return 102
-end
-
-_blocks[2] = function()
-    local a = string.byte("\u{61}") - 97
-    local b = string.byte("\u{62}") - 97
-    local c = string.byte("\u{63}") - 97
-    local calc = math.floor(math.sqrt((a + b + c + k) * 100))
-    print("[CFF] Math check: " .. calc)
-    return 103
-end
-
-_blocks[3] = function()
-    print("[CFF] Enter 12-digit timed key (valid 1 min)")
-    print("[CFF] Set _G.RenuxKey = 'key' dulu")
-    local input = _G.RenuxKey or ""
-    if input == "" then
-        print("[CFF] No key! clue current key:")
-        local cm = math.floor(os.time()/60)
-        local ck = genKey(cm)
-        local clues = getClues(ck)
-        print("Count Upper: " .. clues.countUpper .. " Lower: " .. clues.countLower .. " Digit: " .. clues.countDigit .. " Symbol: " .. clues.countSymbol)
-        print("Pos Upper: " .. table.concat(clues.posUpper, ",") .. " Pos Lower: " .. table.concat(clues.posLower, ","))
-        return 106
-    end
-    if verifyKey(input) then
-        print("[CFF] Key valid!")
-        return 104
-    else
-        tries = tries + 1
-        print("[CFF] Invalid! Try " .. tries .. "/" .. maxTries)
-        if tries >= maxTries then
-            return 105
-        end
-        return 103
-    end
-end
-
-_blocks[4] = function()
-    print("[CFF] Running protected main code...")
-    labyrinth()
-    print("[CFF] Main executed successfully!")
-    return 106
-end
-
-_blocks[5] = function()
-    error("[CFF TRAP] Brute-force detected! Script locked.")
-    return 106
-end
-
-_blocks[6] = function()
-    print("[CFF] Exit")
-    return nil
-end
-
-local mt = {
-    __index = function(t, k)
-        if k == "bypass" or type(k) == "string" then
-            error("[ANTI-BYPASS] Trap activated!")
-        end
-        return rawget(t, k)
-    end,
-    __newindex = function(t, k, v)
-        error("[ANTI-TAMPER] Modification locked!")
-    end
-}
-
-setmetatable(_blocks, mt)
-
-while true do
-    if _state == nil then break end
-    local realState = decodeState(_state)
-    local f = rawget(_blocks, realState)
-    if not f then break end
-    _state = f()
-end
-DEFAULT_CFF
-
+    echo 'print("Hello from custom script!")' > "$PROJECT_FILE"
     nano "$PROJECT_FILE"
     if [ ! -s "$PROJECT_FILE" ]; then echo -e "${RED}[fail] empty${RESET}"; return; fi
     do_obfuscate
