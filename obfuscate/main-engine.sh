@@ -143,7 +143,7 @@ def obfuscate_user_code(user_code, damage):
     ent_var = rand_name(damage, "_ent")
     code_var = rand_name(damage, "_code")
 
-    obf_snippet = f\"\"\"{lua_vars_code}
+    obf_snippet = f"""{lua_vars_code}
 {chr(10).join(chunk_defs)}
 {combine_b91}
 {b91_chars_def}
@@ -185,7 +185,7 @@ local {ent_var}={b91_decode_func}({full_b91_var})
 local {code_var}={ent_var}:gsub("&#(%d+);",function(n) return string.char(tonumber(n)) end):gsub("\\\\u{{(%x+)}}",function(n) return string.char(tonumber(n,16)) end)
 local _load=loadstring or load
 local _ok,_fn=pcall(_load,{code_var})
-if _ok and _fn then pcall(_fn) end\"\"\"
+if _ok and _fn then pcall(_fn) end"""
     return obf_snippet
 
 def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space):
