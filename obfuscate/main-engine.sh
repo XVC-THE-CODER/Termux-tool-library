@@ -199,172 +199,231 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
 
     obfuscated_user_code = obfuscate_user_code(user_code, damage)
 
-    cff_raw_wrapper = f'''
-local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
-local salt = "XyZ_88_SecretSalt"
-local k = 211
-
-local function hashSalt(s)
-    local h = 0
-    for i=1,#s do
-        h = (h * 31 + string.byte(s, i)) % 1000000
-    end
-    return h
+    beautyvm_wrapper = f'''
+local BeautyVM = {{}}
+local B = bit32 or bit
+local function tcreate(n)
+    if table.create then return table.create(n) end
+    return {{}}
 end
-
-local function genKey(minute)
-    local seed = minute + hashSalt(salt)
-    math.randomseed(seed)
+local CS = {{
+    A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    N = "0123456789",
+    S = "!@#$%^&*"
+}}
+local B85_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{{|}}~"
+local function XorCrypt(data, key)
+    local res = tcreate(#data)
+    for i = 1, #data do
+        local kb = string.byte(key, (i - 1) % #key + 1)
+        local b = string.byte(data, i)
+        res[i] = string.char(B.bxor(b, (kb + i * 13) % 256))
+    end
+    return table.concat(res)
+end
+local function Reverse(s) return string.reverse(s) end
+local function HashBin(s)
+    local h = {{}}
+    for i = 1, 32 do h[i] = 0 end
+    local seed = 2166136261
+    for i = 1, #s do
+        local b = string.byte(s, i)
+        for j = 1, 32 do
+            h[j] = (h[j] * 31 + b + j * 7 + seed % 256) % 256
+        end
+        seed = (B.bxor(seed, b) * 16777619) % 4294967296
+    end
+    for i = 1, 32 do
+        h[i] = B.bxor(h[i], seed % 256)
+        seed = math.floor(seed / 256)
+        if seed == 0 then seed = 0x9E3779B9 end
+    end
+    local r = tcreate(32)
+    for i = 1, 32 do r[i] = string.char(h[i]) end
+    return table.concat(r)
+end
+local function KDF(master, info, key)
+    return HashBin(tostring(master) .. "|" .. info .. "|" .. (key or "") .. "|" .. tostring(master))
+end
+local function RC4(key, data)
+    local S = {{}}
+    for i = 0, 255 do S[i] = i end
+    local j = 0
+    for i = 0, 255 do
+        j = (j + S[i] + string.byte(key, (i % #key) + 1)) % 256
+        S[i], S[j] = S[j], S[i]
+    end
+    local i, j = 0, 0
+    local res = tcreate(#data)
+    for n = 1, #data do
+        i = (i + 1) % 256
+        j = (j + S[i]) % 256
+        S[i], S[j] = S[j], S[i]
+        local K = S[(S[i] + S[j]) % 256]
+        res[n] = string.char(B.bxor(string.byte(data, n), K))
+    end
+    return table.concat(res)
+end
+local function Magic()
+    local t = tcreate(8)
+    for i = 1, 8 do t[i] = string.char(math.random(0, 255)) end
+    return table.concat(t)
+end
+local function B85Encode(data)
+    local res = {{}}
+    for i = 1, #data, 4 do
+        local b1 = string.byte(data, i) or 0
+        local b2 = string.byte(data, i + 1) or 0
+        local b3 = string.byte(data, i + 2) or 0
+        local b4 = string.byte(data, i + 3) or 0
+        local v = ((b1 * 256 + b2) * 256 + b3) * 256 + b4
+        local ch = {{}}
+        for j = 5, 1, -1 do
+            ch[j] = string.sub(B85_ALPHABET, (v % 85) + 1, (v % 85) + 1)
+            v = math.floor(v / 85)
+        end
+        for j = 1, 5 do res[#res + 1] = ch[j] end
+    end
+    return table.concat(res)
+end
+local function B85Decode(data)
+    local res = {{}}
+    for i = 1, #data, 5 do
+        local v = 0
+        for j = 0, 4 do
+            local c = string.sub(data, i + j, i + j)
+            if c == "" then break end
+            local pos = string.find(B85_ALPHABET, c, 1, true)
+            if not pos then return nil end
+            v = v * 85 + (pos - 1)
+        end
+        local b4 = v % 256 v = math.floor(v / 256)
+        local b3 = v % 256 v = math.floor(v / 256)
+        local b2 = v % 256 v = math.floor(v / 256)
+        local b1 = v % 256
+        res[#res + 1] = string.char(b1, b2, b3, b4)
+    end
+    return table.concat(res)
+end
+function BeautyVM.Generate(seed, slot)
+    local pattern = {{"A","N","S","A","N","S","A","N","S","A","N","S"}}
     local key = ""
-    for i=1,12 do
+    math.randomseed(seed + slot)
+    for i = 1, 12 do
+        local charset = CS[pattern[i]]
         local idx = math.random(1, #charset)
         key = key .. string.sub(charset, idx, idx)
     end
+    return key, pattern
+end
+function BeautyVM.Encrypt(key, master)
+    local mg = Magic()
+    local ck0 = KDF(master, "enc0")
+    local rc = RC4(ck0, key)
+    local rc2 = RC4(Reverse(ck0), rc)
+    local b85 = B85Encode(rc2)
+    local ver = string.char(1)
+    local lenBytes = string.char(math.floor(#b85 / 256), #b85 % 256)
+    local ck = KDF(master, "enc", key)
+    local hmac = HashBin(ck .. b85 .. ver .. lenBytes)
+    return mg .. ver .. lenBytes .. hmac .. b85
+end
+function BeautyVM.Decrypt(encBlob, master)
+    if #encBlob < 43 then return nil end
+    local ver = string.sub(encBlob, 9, 9)
+    local lenBytes = string.sub(encBlob, 10, 11)
+    local hmac = string.sub(encBlob, 12, 43)
+    local b85 = string.sub(encBlob, 44)
+    local expLen = string.byte(lenBytes, 1) * 256 + string.byte(lenBytes, 2)
+    if expLen ~= #b85 then return nil end
+    local ck0 = KDF(master, "enc0")
+    local rc2 = B85Decode(b85)
+    if not rc2 then return nil end
+    local rc = RC4(Reverse(ck0), rc2)
+    local key = RC4(ck0, rc)
+    local ck = KDF(master, "enc", key)
+    local expHmac = HashBin(ck .. b85 .. ver .. lenBytes)
+    if expHmac ~= hmac then return nil end
     return key
 end
-
-local function verifyKey(input)
-    local currentMinute = math.floor(os.time() / 60)
-    local keyNow = genKey(currentMinute)
-    local keyPrev = genKey(currentMinute - 1)
-    if input == keyNow or input == keyPrev then
-        return true
+function BeautyVM.Labyrinth(key, master)
+    if not key or #key == 0 then return false end
+    local mk = KDF(master, "lab", key)
+    local mb = {{string.byte(mk, 1, 32)}}
+    local M = {{}}
+    for i = 1, 128 do
+        M[i] = {{
+            n = (mb[(i % 32) + 1] + i * 13 + key:byte((i % #key) + 1)) % 128 + 1,
+            f = (mb[((i + 7) % 32) + 1] + i * 17 + key:byte(((i + 3) % #key) + 1)) % 128 + 1,
+            v = (mb[((i + 13) % 32) + 1] + i * 19 + key:byte(((i + 5) % #key) + 1)) % 256
+        }}
+    end
+    local real = (mb[1] + key:byte(1) * 1009) % 128 + 1
+    M[real] = {{r = true, n = real, f = real, v = mb[2]}}
+    local cur = (mb[3] + key:byte(2)) % 128 + 1
+    local step = 0
+    while step < 300 do
+        local node = M[cur]
+        if node.r then return true end
+        local need = (mb[4] + cur * 3 + key:byte((cur % #key) + 1)) % 256
+        if node.v == need then cur = node.n else cur = node.f end
+        step = step + 1
     end
     return false
 end
-
-local function getClues(key)
-    local front = string.sub(key, 1, 4)
-    local middle = string.sub(key, 5, 8)
-    local back = string.sub(key, 9, 12)
-    local countUpper, countLower, countDigit, countSymbol = 0,0,0,0
-    local posUpper, posLower = {{}},{{}}
-    for i=1,#key do
-        local c = string.sub(key, i, i)
-        if c:match("%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
-        elseif c:match("%l") then countLower = countLower + 1 table.insert(posLower, i)
-        elseif c:match("%d") then countDigit = countDigit + 1
-        else countSymbol = countSymbol + 1 end
-    end
-    return {{
-        frontType = "mixed",
-        middleType = "mixed", 
-        backType = "mixed",
-        countUpper = countUpper,
-        countLower = countLower,
-        countDigit = countDigit,
-        countSymbol = countSymbol,
-        posUpper = posUpper,
-        posLower = posLower
-    }}
-end
-
-local tries = 0
-local maxTries = 3
-
-local function labyrinth()
-    local x = 0
-    for i=1,500000 do
-        x = (x + i * 31) % 1000000
-    end
-    return x
-end
-
-local _state = 101
-local _blocks = {{}}
-
-local function decodeState(s)
-    return (s - 100)
-end
-
-_blocks[1] = function()
-    local execName = "Unknown"
-    if identifyexecutor then
-        execName = identifyexecutor()
-    elseif getexecutorname then
-        execName = getexecutorname()
-    end
-    print("[CFF] Executor: " .. tostring(execName))
-    return 102
-end
-
-_blocks[2] = function()
-    local a = string.byte("\\u{{61}}") - 97
-    local b = string.byte("\\u{{62}}") - 97
-    local c = string.byte("\\u{{63}}") - 97
-    local calc = math.floor(math.sqrt((a + b + c + k) * 100))
-    print("[CFF] Math check: " .. calc)
-    return 103
-end
-
-_blocks[3] = function()
-    print("[CFF] Enter 12-digit timed key (valid 1 min)")
-    print("[CFF] Set _G.RenuxKey = 'key' dulu")
-    local input = _G.RenuxKey or ""
-    if input == "" then
-        print("[CFF] No key! clue current key:")
-        local cm = math.floor(os.time()/60)
-        local ck = genKey(cm)
-        local clues = getClues(ck)
-        print("Count Upper: " .. clues.countUpper .. " Lower: " .. clues.countLower .. " Digit: " .. clues.countDigit .. " Symbol: " .. clues.countSymbol)
-        print("Pos Upper: " .. table.concat(clues.posUpper, ",") .. " Pos Lower: " .. table.concat(clues.posLower, ","))
-        return 106
-    end
-    if verifyKey(input) then
-        print("[CFF] Key valid!")
-        return 104
-    else
-        tries = tries + 1
-        print("[CFF] Invalid! Try " .. tries .. "/" .. maxTries)
-        if tries >= maxTries then
-            return 105
+function BeautyVM.Execute(encByte, encConst, encMap, master, encKey, encP1, encP2)
+    local keyNow = BeautyVM.Decrypt(encKey, master)
+    if not keyNow then return nil end
+    if not BeautyVM.Labyrinth(keyNow, master) then return nil end
+    local chosenEnc = keyNow:byte(1) % 2 == 0 and encP1 or encP2
+    local mkMap = KDF(master, "map", keyNow)
+    local mkConst = KDF(master, "const", keyNow)
+    local mkByte = KDF(master, "byte", keyNow)
+    local mkPay = KDF(master, "pay", keyNow)
+    local opMapStr = XorCrypt(encMap, string.sub(mkMap, 1, 4))
+    local opMap = loadstring("return " .. opMapStr)()
+    local constB85 = XorCrypt(encConst, string.sub(mkConst, 1, 4))
+    local constStr = B85Decode(constB85)
+    if not constStr then return nil end
+    local consts = loadstring("return " .. constStr)()
+    local codeStr = XorCrypt(encByte, string.sub(mkByte, 1, 4))
+    local codes = loadstring("return " .. codeStr)()
+    local Rg = {{}}
+    local env = setmetatable({{}}, {{
+        __index = function(_, k)
+            local allow = {{print = true, math = true, string = true, table = true}}
+            if not allow[k] then return nil end
+            return rawget(_G, k)
         end
-        return 103
+    }})
+    local H = {{}}
+    H[opMap.LOADK] = function(ins) Rg[ins.A] = consts[ins.B] end
+    H[opMap.GETGLOBAL] = function(ins) Rg[ins.A] = env[consts[ins.B]] end
+    H[opMap.CALL] = function(ins)
+        local f = Rg[ins.A]
+        if type(f) == "function" then f(Rg[ins.A + 1]) end
     end
-end
-
-_blocks[4] = function()
-    print("[CFF] Running protected main code...")
-    labyrinth()
-    {obfuscated_user_code}
-    print("[CFF] Main executed successfully!")
-    return 106
-end
-
-_blocks[5] = function()
-    error("[CFF TRAP] Brute-force detected! Script locked.")
-    return 106
-end
-
-_blocks[6] = function()
-    print("[CFF] Exit")
-    return nil
-end
-
-local mt = {{
-    __index = function(t, k)
-        if k == "bypass" or type(k) == "string" then
-            error("[ANTI-BYPASS] Trap activated!")
-        end
-        return rawget(t, k)
-    end,
-    __newindex = function(t, k, v)
-        error("[ANTI-TAMPER] Modification locked!")
+    H[opMap.RETURN] = function() return true end
+    H[opMap.JUNK] = function() end
+    local pc = 1
+    while pc <= #codes do
+        local ins = codes[pc]
+        local dk = KDF(master, "pc" .. pc, keyNow)
+        local op = B.bxor(ins[1], string.byte(dk, 1))
+        local handler = H[op]
+        if not handler then return nil end
+        if handler(ins) then break end
+        pc = pc + 1
     end
-}}
-
-setmetatable(_blocks, mt)
-
-while true do
-    if _state == nil then break end
-    local realState = decodeState(_state)
-    local f = rawget(_blocks, realState)
-    if not f then break end
-    _state = f()
+    local payload = XorCrypt(chosenEnc, string.sub(mkPay, 1, 4))
+    return payload
 end
+
+-- USER OBFUSCATED PAYLOAD BELOW:
+{obfuscated_user_code}
 '''
 
-    final_code = cff_raw_wrapper
+    final_code = beautyvm_wrapper
     if oneline == "on":
         final_code = final_code.replace("\n", " ")
         final_code = re.sub(r'\s+', ' ', final_code)
@@ -432,7 +491,7 @@ show_banner() {
     echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
     echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} BYTECODE v9 - BEAUTYVM + CFF WRAPPER${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - BEAUTYVM WRAPPER${RESET}"
     echo ""
 }
 
@@ -500,229 +559,19 @@ do_obfuscate() {
 }
 
 handle_start() {
-    rm -f "$PROJECT_FILE"
-    cat << 'BEAUTYVM_CODE' > "$PROJECT_FILE"
-local BeautyVM = {}
-local B = bit32 or bit
-local function tcreate(n)
-    if table.create then return table.create(n) end
-    return {}
-end
-local CS = {
-    A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    N = "0123456789",
-    S = "!@#$%^&*"
-}
-local B85_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~"
-local function XorCrypt(data, key)
-    local res = tcreate(#data)
-    for i = 1, #data do
-        local kb = string.byte(key, (i - 1) % #key + 1)
-        local b = string.byte(data, i)
-        res[i] = string.char(B.bxor(b, (kb + i * 13) % 256))
-    end
-    return table.concat(res)
-end
-local function Reverse(s) return string.reverse(s) end
-local function HashBin(s)
-    local h = {}
-    for i = 1, 32 do h[i] = 0 end
-    local seed = 2166136261
-    for i = 1, #s do
-        local b = string.byte(s, i)
-        for j = 1, 32 do
-            h[j] = (h[j] * 31 + b + j * 7 + seed % 256) % 256
-        end
-        seed = (B.bxor(seed, b) * 16777619) % 4294967296
-    end
-    for i = 1, 32 do
-        h[i] = B.bxor(h[i], seed % 256)
-        seed = math.floor(seed / 256)
-        if seed == 0 then seed = 0x9E3779B9 end
-    end
-    local r = tcreate(32)
-    for i = 1, 32 do r[i] = string.char(h[i]) end
-    return table.concat(r)
-end
-local function KDF(master, info, key)
-    return HashBin(tostring(master) .. "|" .. info .. "|" .. (key or "") .. "|" .. tostring(master))
-end
-local function RC4(key, data)
-    local S = {}
-    for i = 0, 255 do S[i] = i end
-    local j = 0
-    for i = 0, 255 do
-        j = (j + S[i] + string.byte(key, (i % #key) + 1)) % 256
-        S[i], S[j] = S[j], S[i]
-    end
-    local i, j = 0, 0
-    local res = tcreate(#data)
-    for n = 1, #data do
-        i = (i + 1) % 256
-        j = (j + S[i]) % 256
-        S[i], S[j] = S[j], S[i]
-        local K = S[(S[i] + S[j]) % 256]
-        res[n] = string.char(B.bxor(string.byte(data, n), K))
-    end
-    return table.concat(res)
-end
-local function Magic()
-    local t = tcreate(8)
-    for i = 1, 8 do t[i] = string.char(math.random(0, 255)) end
-    return table.concat(t)
-end
-local function B85Encode(data)
-    local res = {}
-    for i = 1, #data, 4 do
-        local b1 = string.byte(data, i) or 0
-        local b2 = string.byte(data, i + 1) or 0
-        local b3 = string.byte(data, i + 2) or 0
-        local b4 = string.byte(data, i + 3) or 0
-        local v = ((b1 * 256 + b2) * 256 + b3) * 256 + b4
-        local ch = {}
-        for j = 5, 1, -1 do
-            ch[j] = string.sub(B85_ALPHABET, (v % 85) + 1, (v % 85) + 1)
-            v = math.floor(v / 85)
-        end
-        for j = 1, 5 do res[#res + 1] = ch[j] end
-    end
-    return table.concat(res)
-end
-local function B85Decode(data)
-    local res = {}
-    for i = 1, #data, 5 do
-        local v = 0
-        for j = 0, 4 do
-            local c = string.sub(data, i + j, i + j)
-            if c == "" then break end
-            local pos = string.find(B85_ALPHABET, c, 1, true)
-            if not pos then return nil end
-            v = v * 85 + (pos - 1)
-        end
-        local b4 = v % 256 v = math.floor(v / 256)
-        local b3 = v % 256 v = math.floor(v / 256)
-        local b2 = v % 256 v = math.floor(v / 256)
-        local b1 = v % 256
-        res[#res + 1] = string.char(b1, b2, b3, b4)
-    end
-    return table.concat(res)
-end
-function BeautyVM.Generate(seed, slot)
-    local pattern = {"A","N","S","A","N","S","A","N","S","A","N","S"}
-    local key = ""
-    math.randomseed(seed + slot)
-    for i = 1, 12 do
-        local charset = CS[pattern[i]]
-        local idx = math.random(1, #charset)
-        key = key .. string.sub(charset, idx, idx)
-    end
-    return key, pattern
-end
-function BeautyVM.Encrypt(key, master)
-    local mg = Magic()
-    local ck0 = KDF(master, "enc0")
-    local rc = RC4(ck0, key)
-    local rc2 = RC4(Reverse(ck0), rc)
-    local b85 = B85Encode(rc2)
-    local ver = string.char(1)
-    local lenBytes = string.char(math.floor(#b85 / 256), #b85 % 256)
-    local ck = KDF(master, "enc", key)
-    local hmac = HashBin(ck .. b85 .. ver .. lenBytes)
-    return mg .. ver .. lenBytes .. hmac .. b85
-end
-function BeautyVM.Decrypt(encBlob, master)
-    if #encBlob < 43 then return nil end
-    local ver = string.sub(encBlob, 9, 9)
-    local lenBytes = string.sub(encBlob, 10, 11)
-    local hmac = string.sub(encBlob, 12, 43)
-    local b85 = string.sub(encBlob, 44)
-    local expLen = string.byte(lenBytes, 1) * 256 + string.byte(lenBytes, 2)
-    if expLen ~= #b85 then return nil end
-    local ck0 = KDF(master, "enc0")
-    local rc2 = B85Decode(b85)
-    if not rc2 then return nil end
-    local rc = RC4(Reverse(ck0), rc2)
-    local key = RC4(ck0, rc)
-    local ck = KDF(master, "enc", key)
-    local expHmac = HashBin(ck .. b85 .. ver .. lenBytes)
-    if expHmac ~= hmac then return nil end
-    return key
-end
-function BeautyVM.Labyrinth(key, master)
-    if not key or #key == 0 then return false end
-    local mk = KDF(master, "lab", key)
-    local mb = {string.byte(mk, 1, 32)}
-    local M = {}
-    for i = 1, 128 do
-        M[i] = {
-            n = (mb[(i % 32) + 1] + i * 13 + key:byte((i % #key) + 1)) % 128 + 1,
-            f = (mb[((i + 7) % 32) + 1] + i * 17 + key:byte(((i + 3) % #key) + 1)) % 128 + 1,
-            v = (mb[((i + 13) % 32) + 1] + i * 19 + key:byte(((i + 5) % #key) + 1)) % 256
-        }
-    end
-    local real = (mb[1] + key:byte(1) * 1009) % 128 + 1
-    M[real] = {r = true, n = real, f = real, v = mb[2]}
-    local cur = (mb[3] + key:byte(2)) % 128 + 1
-    local step = 0
-    while step < 300 do
-        local node = M[cur]
-        if node.r then return true end
-        local need = (mb[4] + cur * 3 + key:byte((cur % #key) + 1)) % 256
-        if node.v == need then cur = node.n else cur = node.f end
-        step = step + 1
-    end
-    return false
-end
-function BeautyVM.Execute(encByte, encConst, encMap, master, encKey, encP1, encP2)
-    local keyNow = BeautyVM.Decrypt(encKey, master)
-    if not keyNow then return nil end
-    if not BeautyVM.Labyrinth(keyNow, master) then return nil end
-    local chosenEnc = keyNow:byte(1) % 2 == 0 and encP1 or encP2
-    local mkMap = KDF(master, "map", keyNow)
-    local mkConst = KDF(master, "const", keyNow)
-    local mkByte = KDF(master, "byte", keyNow)
-    local mkPay = KDF(master, "pay", keyNow)
-    local opMapStr = XorCrypt(encMap, string.sub(mkMap, 1, 4))
-    local opMap = loadstring("return " .. opMapStr)()
-    local constB85 = XorCrypt(encConst, string.sub(mkConst, 1, 4))
-    local constStr = B85Decode(constB85)
-    if not constStr then return nil end
-    local consts = loadstring("return " .. constStr)()
-    local codeStr = XorCrypt(encByte, string.sub(mkByte, 1, 4))
-    local codes = loadstring("return " .. codeStr)()
-    local Rg = {}
-    local env = setmetatable({}, {
-        __index = function(_, k)
-            local allow = {print = true, math = true, string = true, table = true}
-            if not allow[k] then return nil end
-            return rawget(_G, k)
-        end
-    })
-    local H = {}
-    H[opMap.LOADK] = function(ins) Rg[ins.A] = consts[ins.B] end
-    H[opMap.GETGLOBAL] = function(ins) Rg[ins.A] = env[consts[ins.B]] end
-    H[opMap.CALL] = function(ins)
-        local f = Rg[ins.A]
-        if type(f) == "function" then f(Rg[ins.A + 1]) end
-    end
-    H[opMap.RETURN] = function() return true end
-    H[opMap.JUNK] = function() end
-    local pc = 1
-    while pc <= #codes do
-        local ins = codes[pc]
-        local dk = KDF(master, "pc" .. pc, keyNow)
-        local op = B.bxor(ins[1], string.byte(dk, 1))
-        local handler = H[op]
-        if not handler then return nil end
-        if handler(ins) then break end
-        pc = pc + 1
-    end
-    local payload = XorCrypt(chosenEnc, string.sub(mkPay, 1, 4))
-    return payload
-end
-return BeautyVM
-BEAUTYVM_CODE
-
+    # Buat file kosong atau template default HANYA JIKA file belum ada sama sekali
+    if [ ! -f "$PROJECT_FILE" ]; then
+        echo 'print("Hello from custom script!")' > "$PROJECT_FILE"
+    fi
+    
+    # Buka nano agar kamu bisa mengedit kodenya secara bebas
+    nano "$PROJECT_FILE"
+    
+    if [ ! -s "$PROJECT_FILE" ]; then 
+        echo -e "${RED}[fail] file is empty${RESET}"
+        return
+    fi
+    
     do_obfuscate
 }
 
