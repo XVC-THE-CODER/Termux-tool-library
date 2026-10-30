@@ -20,10 +20,10 @@ module_settings() {
         echo "damage=2" >> "$SETTINGS_FILE"
         echo "anti_bug=on" >> "$SETTINGS_FILE"
         echo "short_byte=on" >> "$SETTINGS_FILE"
-        echo "use_space=on" >> "$SETTINGS_FILE"
+        echo "minify=on" >> "$SETTINGS_FILE"
     fi
     if ! grep -q "short_byte" "$SETTINGS_FILE"; then echo "short_byte=on" >> "$SETTINGS_FILE"; fi
-    if ! grep -q "use_space" "$SETTINGS_FILE"; then echo "use_space=on" >> "$SETTINGS_FILE"; fi
+    if ! grep -q "minify" "$SETTINGS_FILE"; then echo "minify=on" >> "$SETTINGS_FILE"; fi
     source "$SETTINGS_FILE"
 }
 
@@ -188,7 +188,7 @@ local _ok,_fn=pcall(_load,{code_var},nil,SAFE_ENV)
 if _ok and _fn then pcall(_fn) end"""
     return obf_snippet
 
-def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, use_space):
+def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, minify):
     global _counter
     _counter = 0
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -203,6 +203,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
 local SAFE_ENV = (function()
     local _G_REAL = _G
     local rawget, setmetatable, pairs = rawget, setmetatable, pairs
+    local unpack_func = rawget(_G_REAL, "unpack") or (table and table.unpack) or function(t, i, j) return unpack(t, i, j) end
     local REAL = {{
         print = rawget(_G_REAL, "print"),
         warn = rawget(_G_REAL, "warn"),
@@ -216,11 +217,13 @@ local SAFE_ENV = (function()
         ipairs = rawget(_G_REAL, "ipairs"),
         next = rawget(_G_REAL, "next"),
         select = rawget(_G_REAL, "select"),
-        unpack = rawget(_G_REAL, "unpack") or rawget(_G_REAL, "table").unpack,
+        unpack = unpack_func,
     }}
     local function lock(t)
         local c = {{}}
-        for k,v in pairs(t) do c[k] = v end
+        if t then
+            for k,v in pairs(t) do c[k] = v end
+        end
         return setmetatable(c, {{
             __index = c,
             __newindex = function() error("locked") end,
@@ -253,7 +256,7 @@ local SAFE_ENV = (function()
 end)()
 
 local BeautyVM = {{}}
-local B = bit32 or bit
+local B = bit32 or bit or {{}}
 local function tcreate(n)
     if table.create then return table.create(n) end
     return {{}}
@@ -269,7 +272,7 @@ local function XorCrypt(data, key)
     for i = 1, #data do
         local kb = string.byte(key, (i - 1) % #key + 1)
         local b = string.byte(data, i)
-        res[i] = string.char(B.bxor(b, (kb + i * 13) % 256))
+        res[i] = string.char(B.bxor and B.bxor(b, (kb + i * 13) % 256) or b)
     end
     return table.concat(res)
 end
@@ -283,10 +286,10 @@ local function HashBin(s)
         for j = 1, 32 do
             h[j] = (h[j] * 31 + b + j * 7 + seed % 256) % 256
         end
-        seed = (B.bxor(seed, b) * 16777619) % 4294967296
+        seed = ((B.bxor and B.bxor(seed, b) or seed) * 16777619) % 4294967296
     end
     for i = 1, 32 do
-        h[i] = B.bxor(h[i], seed % 256)
+        h[i] = B.bxor and B.bxor(h[i], seed % 256) or h[i]
         seed = math.floor(seed / 256)
         if seed == 0 then seed = 0x9E3779B9 end
     end
@@ -312,7 +315,7 @@ local function RC4(key, data)
         j = (j + S[i]) % 256
         S[i], S[j] = S[j], S[i]
         local K = S[(S[i] + S[j]) % 256]
-        res[n] = string.char(B.bxor(string.byte(data, n), K))
+        res[n] = string.char(B.bxor and B.bxor(string.byte(data, n), K) or string.byte(data, n))
     end
     return table.concat(res)
 end
@@ -514,8 +517,12 @@ end
     if oneline == "on":
         final_code = final_code.replace("\n", " ")
         final_code = re.sub(r'\s+', ' ', final_code)
-    if use_space == "on":
-        lines = [line.strip() for line in final_code.splitlines() if line.strip() and not line.strip().startswith("--")]
+    if minify == "on":
+        lines = []
+        for line in final_code.splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("--"):
+                lines.append(stripped)
         final_code = " ".join(lines)
 
     if anti_bug == "on":
@@ -552,8 +559,8 @@ if __name__ == "__main__":
     damage = int(sys.argv[4]) if len(sys.argv)>4 else 2
     anti_bug = sys.argv[5] if len(sys.argv)>5 else "on"
     short_byte = sys.argv[6] if len(sys.argv)>6 else "on"
-    use_space = sys.argv[7] if len(sys.argv)>7 else "on"
-    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug, short_byte, use_space)
+    minify = sys.argv[7] if len(sys.argv)>7 else "on"
+    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug, short_byte, minify)
     print("OK" if ok else "FAIL")
     sys.exit(0 if ok else 2)
 PY_TRANSFORMER
@@ -578,7 +585,7 @@ show_banner() {
     echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
     echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} BYTECODE v9 - SAFE_ENV + BEAUTYVM + CFF${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - SAFE_ENV + VM + CFF + MINIFY${RESET}"
     echo ""
 }
 
@@ -608,7 +615,7 @@ do_obfuscate() {
     local tmp_out="$HOME/.obfuscate_temp.lua"
     module_settings
     cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
-    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$use_space"
+    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$minify"
     local status=$?
     if [ $status -ne 0 ] || [ ! -f "$tmp_out" ]; then
         echo -e "${RED}[fail] obfuscate failed${RESET}"
@@ -671,7 +678,7 @@ handle_setting() {
         echo -e "2. damage    : ${YELLOW}$damage${RESET}"
         echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET}"
         echo -e "4. short_byte: ${YELLOW}$short_byte${RESET}"
-        echo -e "5. use_space : ${YELLOW}$use_space${RESET}"
+        echo -e "5. minify    : ${YELLOW}$minify${RESET}"
         echo -e "6. back"
         echo -e "${GREEN}----------------------------------------${RESET}"
         echo -ne "${CYAN}select 1-6 > ${RESET}"
@@ -681,7 +688,7 @@ handle_setting() {
             2) echo -ne "damage 1-15 > "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
             3) echo -ne "anti_bug on/off > "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
             4) echo -ne "short_byte on/off > "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
-            5) echo -ne "use_space on/off > "; read -r val; sed -i "s/^use_space=.*/use_space=$val/" "$SETTINGS_FILE" ;;
+            5) echo -ne "minify on/off > "; read -r val; sed -i "s/^minify=.*/minify=$val/" "$SETTINGS_FILE" ;;
             6|q|exit) break ;;
         esac
     done
