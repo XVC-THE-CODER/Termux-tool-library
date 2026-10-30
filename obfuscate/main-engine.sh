@@ -222,131 +222,12 @@ local SAFE_ENV = (function()
         table = rawget(_G_REAL, "table"),
         coroutine = rawget(_G_REAL, "coroutine")
     }}
-    local function isExe()
-        return rawget(_G_REAL, "getgenv") ~= nil 
-        or rawget(_G_REAL, "getrenv") ~= nil 
-        or rawget(_G_REAL, "hookfunction") ~= nil
-        or rawget(_G_REAL, "islclosure") ~= nil
-    end
-    if isExe() then
-        return setmetatable({{}}, {{
-            __index = function() return nil end,
-            __newindex = function() error("fake env locked") end,
-            __metatable = false
-        }})
-    end
     return setmetatable({{}}, {{
         __index = function(_, k) return REAL[k] end,
         __newindex = function(_, k) error("SAFE_ENV locked: "..tostring(k)) end,
         __metatable = false
     }})
 end)()
-
-local BeautyVM = {{}}
-local B = bit32 or bit or {{}}
-local function tcreate(n)
-    if table.create then return table.create(n) end
-    return {{}}
-end
-local CS = {{
-    A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    N = "0123456789",
-    S = "!@#$%^&*"
-}}
-local B85_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{{|}}~"
-local function XorCrypt(data, key)
-    local res = tcreate(#data)
-    for i = 1, #data do
-        local kb = string.byte(key, (i - 1) % #key + 1)
-        local b = string.byte(data, i)
-        res[i] = string.char(B.bxor and B.bxor(b, (kb + i * 13) % 256) or b)
-    end
-    return table.concat(res)
-end
-local function Reverse(s) return string.reverse(s) end
-local function HashBin(s)
-    local h = {{}}
-    for i = 1, 32 do h[i] = 0 end
-    local seed = 2166136261
-    for i = 1, #s do
-        local b = string.byte(s, i)
-        for j = 1, 32 do
-            h[j] = (h[j] * 31 + b + j * 7 + seed % 256) % 256
-        end
-        seed = ((B.bxor and B.bxor(seed, b) or seed) * 16777619) % 4294967296
-    end
-    for i = 1, 32 do
-        h[i] = B.bxor and B.bxor(h[i], seed % 256) or h[i]
-        seed = math.floor(seed / 256)
-        if seed == 0 then seed = 0x9E3779B9 end
-    end
-    local r = tcreate(32)
-    for i = 1, 32 do r[i] = string.char(h[i]) end
-    return table.concat(r)
-end
-local function KDF(master, info, key)
-    return HashBin(tostring(master) .. "|" .. info .. "|" .. (key or "") .. "|" .. tostring(master))
-end
-local function RC4(key, data)
-    local S = {{}}
-    for i = 0, 255 do S[i] = i end
-    local j = 0
-    for i = 0, 255 do
-        j = (j + S[i] + string.byte(key, (i % #key) + 1)) % 256
-        S[i], S[j] = S[j], S[i]
-    end
-    local i, j = 0, 0
-    local res = tcreate(#data)
-    for n = 1, #data do
-        i = (i + 1) % 256
-        j = (j + S[i]) % 256
-        S[i], S[j] = S[j], S[i]
-        local K = S[(S[i] + S[j]) % 256]
-        res[n] = string.char(B.bxor and B.bxor(string.byte(data, n), K) or string.byte(data, n))
-    end
-    return table.concat(res)
-end
-local function Magic()
-    local t = tcreate(8)
-    for i = 1, 8 do t[i] = string.char(math.random(0, 255)) end
-    return table.concat(t)
-end
-local function B85Encode(data)
-    local res = {{}}
-    for i = 1, #data, 4 do
-        local b1 = string.byte(data, i) or 0
-        local b2 = string.byte(data, i + 1) or 0
-        local b3 = string.byte(data, i + 2) or 0
-        local b4 = string.byte(data, i + 3) or 0
-        local v = ((b1 * 256 + b2) * 256 + b3) * 256 + b4
-        local ch = {{}}
-        for j = 5, 1, -1 do
-            ch[j] = string.sub(B85_ALPHABET, (v % 85) + 1, (v % 85) + 1)
-            v = math.floor(v / 85)
-        end
-        for j = 1, 5 do res[#res + 1] = ch[j] end
-    end
-    return table.concat(res)
-end
-local function B85Decode(data)
-    local res = {{}}
-    for i = 1, #data, 5 do
-        local v = 0
-        for j = 0, 4 do
-            local c = string.sub(data, i + j, i + j)
-            if c == "" then break end
-            local pos = string.find(B85_ALPHABET, c, 1, true)
-            if not pos then return nil end
-            v = v * 85 + (pos - 1)
-        end
-        local b4 = v % 256 v = math.floor(v / 256)
-        local b3 = v % 256 v = math.floor(v / 256)
-        local b2 = v % 256 v = math.floor(v / 256)
-        local b1 = v % 256
-        res[#res + 1] = string.char(b1, b2, b3, b4)
-    end
-    return table.concat(res)
-end
 
 local charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
 local salt = "XyZ_88_SecretSalt"
@@ -386,9 +267,9 @@ local function getClues(key)
     local posUpper, posLower = {{}},{{}}
     for i=1,#key do
         local c = string.sub(key, i, i)
-        if c:match("%%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
-        elseif c:match("%%l") then countLower = countLower + 1 table.insert(posLower, i)
-        elseif c:match("%%d") then countDigit = countDigit + 1
+        if c:match("%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
+        elseif c:match("%l") then countLower = countLower + 1 table.insert(posLower, i)
+        elseif c:match("%d") then countDigit = countDigit + 1
         else countSymbol = countSymbol + 1 end
     end
     return {{
@@ -446,7 +327,7 @@ _blocks[3] = function()
         local ck = genKey(cm)
         local clues = getClues(ck)
         print("Count Upper: " .. clues.countUpper .. " Lower: " .. clues.countLower .. " Digit: " .. clues.countDigit .. " Symbol: " .. clues.countSymbol)
-        return 106
+        return 103
     end
     if verifyKey(input) then
         print("[CFF] Key valid!")
@@ -479,7 +360,7 @@ end
 
 local mt = {{
     __index = function(t, k)
-        if k == "bypass" or type(k) == "string" then
+        if k == "bypass" then
             error("[ANTI-BYPASS] Trap activated!")
         end
         return rawget(t, k)
@@ -568,7 +449,7 @@ show_banner() {
     echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
     echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} BYTECODE v9 - FINAL FIXED EDITION${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - ADVANCED SECURE EDITION${RESET}"
     echo ""
 }
 
