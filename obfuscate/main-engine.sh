@@ -16,8 +16,7 @@ RESET='\033[0m'
 module_settings() {
     if [ ! -f "$SETTINGS_FILE" ]; then
         mkdir -p "$(dirname "$SETTINGS_FILE")"
-        echo "oneline=off" > "$SETTINGS_FILE"
-        echo "damage=2" >> "$SETTINGS_FILE"
+        echo "damage=2" > "$SETTINGS_FILE"
         echo "anti_bug=on" >> "$SETTINGS_FILE"
         echo "short_byte=on" >> "$SETTINGS_FILE"
         echo "minify=on" >> "$SETTINGS_FILE"
@@ -188,7 +187,7 @@ local _ok,_fn=pcall(_load,{code_var},nil,SAFE_ENV)
 if _ok and _fn then pcall(_fn) end"""
     return obf_snippet
 
-def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byte, minify):
+def obfuscate_file(input_path, output_path, damage, anti_bug, short_byte, minify):
     global _counter
     _counter = 0
     with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -203,7 +202,7 @@ def obfuscate_file(input_path, output_path, oneline, damage, anti_bug, short_byt
 local SAFE_ENV = (function()
     local _G_REAL = _G
     local rawget, setmetatable, pairs = rawget, setmetatable, pairs
-    local unpack_func = rawget(_G_REAL, "unpack") or (table and table.unpack) or function(t, i, j) return unpack(t, i, j) end
+    local upk = rawget(_G_REAL, "unpack") or (table and table.unpack) or function(t, i, j) return unpack(t, i, j) end
     local REAL = {{
         print = rawget(_G_REAL, "print"),
         warn = rawget(_G_REAL, "warn"),
@@ -217,23 +216,12 @@ local SAFE_ENV = (function()
         ipairs = rawget(_G_REAL, "ipairs"),
         next = rawget(_G_REAL, "next"),
         select = rawget(_G_REAL, "select"),
-        unpack = unpack_func,
+        unpack = upk,
+        math = rawget(_G_REAL, "math"),
+        string = rawget(_G_REAL, "string"),
+        table = rawget(_G_REAL, "table"),
+        coroutine = rawget(_G_REAL, "coroutine")
     }}
-    local function lock(t)
-        local c = {{}}
-        if t then
-            for k,v in pairs(t) do c[k] = v end
-        end
-        return setmetatable(c, {{
-            __index = c,
-            __newindex = function() error("locked") end,
-            __metatable = false
-        }})
-    end
-    REAL.math = lock(rawget(_G_REAL, "math"))
-    REAL.string = lock(rawget(_G_REAL, "string"))
-    REAL.table = lock(rawget(_G_REAL, "table"))
-    REAL.coroutine = lock(rawget(_G_REAL, "coroutine"))
     local function isExe()
         return rawget(_G_REAL, "getgenv") ~= nil 
         or rawget(_G_REAL, "getrenv") ~= nil 
@@ -241,12 +229,11 @@ local SAFE_ENV = (function()
         or rawget(_G_REAL, "islclosure") ~= nil
     end
     if isExe() then
-        local FAKE = setmetatable({{}}, {{
+        return setmetatable({{}}, {{
             __index = function() return nil end,
             __newindex = function() error("fake env locked") end,
             __metatable = false
         }})
-        return FAKE
     end
     return setmetatable({{}}, {{
         __index = function(_, k) return REAL[k] end,
@@ -399,9 +386,9 @@ local function getClues(key)
     local posUpper, posLower = {{}},{{}}
     for i=1,#key do
         local c = string.sub(key, i, i)
-        if c:match("%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
-        elseif c:match("%l") then countLower = countLower + 1 table.insert(posLower, i)
-        elseif c:match("%d") then countDigit = countDigit + 1
+        if c:match("%%u") then countUpper = countUpper + 1 table.insert(posUpper, i)
+        elseif c:match("%%l") then countLower = countLower + 1 table.insert(posLower, i)
+        elseif c:match("%%d") then countDigit = countDigit + 1
         else countSymbol = countSymbol + 1 end
     end
     return {{
@@ -514,9 +501,6 @@ end
 '''
 
     final_code = master_wrapper
-    if oneline == "on":
-        final_code = final_code.replace("\n", " ")
-        final_code = re.sub(r'\s+', ' ', final_code)
     if minify == "on":
         lines = []
         for line in final_code.splitlines():
@@ -555,12 +539,11 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(1)
     inp, outp = sys.argv[1], sys.argv[2]
-    oneline = sys.argv[3] if len(sys.argv)>3 else "off"
-    damage = int(sys.argv[4]) if len(sys.argv)>4 else 2
-    anti_bug = sys.argv[5] if len(sys.argv)>5 else "on"
-    short_byte = sys.argv[6] if len(sys.argv)>6 else "on"
-    minify = sys.argv[7] if len(sys.argv)>7 else "on"
-    ok = obfuscate_file(inp, outp, oneline, damage, anti_bug, short_byte, minify)
+    damage = int(sys.argv[3]) if len(sys.argv)>3 else 2
+    anti_bug = sys.argv[4] if len(sys.argv)>4 else "on"
+    short_byte = sys.argv[5] if len(sys.argv)>5 else "on"
+    minify = sys.argv[6] if len(sys.argv)>6 else "on"
+    ok = obfuscate_file(inp, outp, damage, anti_bug, short_byte, minify)
     print("OK" if ok else "FAIL")
     sys.exit(0 if ok else 2)
 PY_TRANSFORMER
@@ -585,7 +568,7 @@ show_banner() {
     echo " |  _ <| |_| | | | | |__| |__| |_| |  _ <| |___ "
     echo " |_| \_\\___/  |_| |_____\____\___/|_| \_\_____|"
     echo -e "${RESET}"
-    echo -e "${WHITE} BYTECODE v9 - SAFE_ENV + VM + CFF + MINIFY${RESET}"
+    echo -e "${WHITE} BYTECODE v9 - FINAL FIXED EDITION${RESET}"
     echo ""
 }
 
@@ -615,7 +598,7 @@ do_obfuscate() {
     local tmp_out="$HOME/.obfuscate_temp.lua"
     module_settings
     cp "$PROJECT_FILE" "$BACKUP_FILE" 2>/dev/null
-    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$oneline" "$damage" "$anti_bug" "$short_byte" "$minify"
+    python3 "$ENGINE_FILE" "$PROJECT_FILE" "$tmp_out" "$damage" "$anti_bug" "$short_byte" "$minify"
     local status=$?
     if [ $status -ne 0 ] || [ ! -f "$tmp_out" ]; then
         echo -e "${RED}[fail] obfuscate failed${RESET}"
@@ -674,22 +657,20 @@ handle_setting() {
         show_banner
         echo -e "${WHITE}SETTINGS${RESET}"
         echo -e "${GREEN}----------------------------------------${RESET}"
-        echo -e "1. oneline   : ${YELLOW}$oneline${RESET}"
-        echo -e "2. damage    : ${YELLOW}$damage${RESET}"
-        echo -e "3. anti_bug  : ${YELLOW}$anti_bug${RESET}"
-        echo -e "4. short_byte: ${YELLOW}$short_byte${RESET}"
-        echo -e "5. minify    : ${YELLOW}$minify${RESET}"
-        echo -e "6. back"
+        echo -e "1. damage    : ${YELLOW}$damage${RESET}"
+        echo -e "2. anti_bug  : ${YELLOW}$anti_bug${RESET}"
+        echo -e "3. short_byte: ${YELLOW}$short_byte${RESET}"
+        echo -e "4. minify    : ${YELLOW}$minify${RESET}"
+        echo -e "5. back"
         echo -e "${GREEN}----------------------------------------${RESET}"
-        echo -ne "${CYAN}select 1-6 > ${RESET}"
+        echo -ne "${CYAN}select 1-5 > ${RESET}"
         read -r s
         case "$s" in
-            1) echo -ne "oneline on/off > "; read -r val; sed -i "s/^oneline=.*/oneline=$val/" "$SETTINGS_FILE" ;;
-            2) echo -ne "damage 1-15 > "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
-            3) echo -ne "anti_bug on/off > "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
-            4) echo -ne "short_byte on/off > "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
-            5) echo -ne "minify on/off > "; read -r val; sed -i "s/^minify=.*/minify=$val/" "$SETTINGS_FILE" ;;
-            6|q|exit) break ;;
+            1) echo -ne "damage 1-15 > "; read -r val; sed -i "s/^damage=.*/damage=$val/" "$SETTINGS_FILE" ;;
+            2) echo -ne "anti_bug on/off > "; read -r val; sed -i "s/^anti_bug=.*/anti_bug=$val/" "$SETTINGS_FILE" ;;
+            3) echo -ne "short_byte on/off > "; read -r val; sed -i "s/^short_byte=.*/short_byte=$val/" "$SETTINGS_FILE" ;;
+            4) echo -ne "minify on/off > "; read -r val; sed -i "s/^minify=.*/minify=$val/" "$SETTINGS_FILE" ;;
+            5|q|exit) break ;;
         esac
     done
 }
